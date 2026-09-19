@@ -4,9 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CATEGORIES, COUNTRIES } from "@/lib/countries";
 import { dict, type Language } from "@/lib/i18n";
 import type { PublicSettings } from "@/lib/settings";
+import type { InboxChannel, InboxMessage, ChannelStatus } from "@/lib/inbox";
 import type { Influencer, OutreachResult } from "@/lib/types";
 
-type View = "discover" | "selected" | "compose" | "results" | "settings";
+type View = "discover" | "selected" | "compose" | "results" | "inbox" | "settings";
 
 const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
   {
@@ -47,8 +48,18 @@ const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
     ),
   },
   {
-    id: "settings",
+    id: "inbox",
     hotkey: "5",
+    icon: (
+      <svg viewBox="0 0 20 20" aria-hidden>
+        <path d="M2.8 5.5h14.4v9H2.8z" />
+        <path d="M2.8 6l7.2 5 7.2-5" />
+      </svg>
+    ),
+  },
+  {
+    id: "settings",
+    hotkey: "6",
     icon: (
       <svg viewBox="0 0 20 20" aria-hidden>
         <circle cx="10" cy="10" r="2.6" />
@@ -61,7 +72,9 @@ const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
 const EMPTY_SETTINGS: PublicSettings = {
   language: "en",
   email: { host: "", port: 587, user: "", from: "", replyTo: "", hasPassword: false },
+  imap: { host: "", port: 993, user: "", hasPassword: false },
   accounts: { instagram: "", telegram: "", tiktok: "", youtube: "", website: "" },
+  hasTelegramBot: false,
 };
 
 function formatFollowers(n: number): string {
@@ -97,6 +110,14 @@ export default function Page() {
   const [password, setPassword] = useState("");
   const [savingSettings, setSavingSettings] = useState(false);
   const [testing, setTesting] = useState(false);
+
+  const [inbox, setInbox] = useState<InboxMessage[]>([]);
+  const [inboxChannels, setInboxChannels] = useState<ChannelStatus[]>([]);
+  const [inboxFilter, setInboxFilter] = useState<InboxChannel | "all">("all");
+  const [inboxLoading, setInboxLoading] = useState(false);
+  const [inboxLoaded, setInboxLoaded] = useState(false);
+  const [telegramBot, setTelegramBot] = useState("");
+  const [imapPassword, setImapPassword] = useState("");
 
   const [collapsed, setCollapsed] = useState(false);
 
@@ -215,6 +236,28 @@ export default function Page() {
     }
   }, [selected, subject, body, channels]);
 
+  const loadInbox = useCallback(async () => {
+    setInboxLoading(true);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/inbox");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not load the inbox.");
+      setInbox(data.messages ?? []);
+      setInboxChannels(data.channels ?? []);
+      setInboxLoaded(true);
+    } catch (error) {
+      setNotice((error as Error).message);
+    } finally {
+      setInboxLoading(false);
+    }
+  }, []);
+
+  // Fetch on the first visit to the page; refreshing afterwards is manual.
+  useEffect(() => {
+    if (view === "inbox" && !inboxLoaded && !inboxLoading) void loadInbox();
+  }, [view, inboxLoaded, inboxLoading, loadInbox]);
+
   const saveSettings = useCallback(async () => {
     setSavingSettings(true);
     setNotice(null);
@@ -225,6 +268,8 @@ export default function Page() {
         body: JSON.stringify({
           language,
           email: { ...settings.email, pass: password },
+          imap: { ...settings.imap, pass: imapPassword },
+          telegramBotToken: telegramBot,
           accounts: settings.accounts,
         }),
       });
@@ -232,13 +277,15 @@ export default function Page() {
       if (!res.ok) throw new Error(data.error ?? "Could not save settings.");
       setSettings(data);
       setPassword("");
+      setImapPassword("");
+      setTelegramBot("");
       setNotice(t.settings.saved);
     } catch (error) {
       setNotice((error as Error).message);
     } finally {
       setSavingSettings(false);
     }
-  }, [language, settings, password, t]);
+  }, [language, settings, password, imapPassword, telegramBot, t]);
 
   const testEmail = useCallback(async () => {
     setTesting(true);
@@ -257,6 +304,9 @@ export default function Page() {
   const setEmailField = (key: keyof PublicSettings["email"], value: string | number) =>
     setSettings((prev) => ({ ...prev, email: { ...prev.email, [key]: value } }));
 
+  const setImapField = (key: keyof PublicSettings["imap"], value: string | number) =>
+    setSettings((prev) => ({ ...prev, imap: { ...prev.imap, [key]: value } }));
+
   const setAccount = (key: keyof PublicSettings["accounts"], value: string) =>
     setSettings((prev) => ({ ...prev, accounts: { ...prev.accounts, [key]: value } }));
 
@@ -265,10 +315,12 @@ export default function Page() {
     selected: selectedIds.length || undefined,
     compose: undefined,
     results: results.length || undefined,
+    inbox: inbox.filter((m) => m.unread).length || undefined,
     settings: undefined,
   };
 
-  const composeMode = view === "compose" || view === "settings";
+  const visibleInbox =
+    inboxFilter === "all" ? inbox : inbox.filter((m) => m.channel === inboxFilter);
 
   return (
     <div className="shell">
@@ -446,6 +498,78 @@ export default function Page() {
             </>
           ) : null}
 
+          {view === "inbox" ? (
+            <>
+              <h1 className="view-title">{t.inbox.title}</h1>
+              <p className="view-sub">{t.inbox.sub}</p>
+              <div className="toggles inbox-filters">
+                {(["all", "email", "instagram", "telegram"] as const).map((channel) => {
+                  const status =
+                    channel === "all"
+                      ? undefined
+                      : inboxChannels.find((c) => c.channel === channel);
+                  const count =
+                    channel === "all"
+                      ? inbox.length
+                      : inbox.filter((m) => m.channel === channel).length;
+                  return (
+                    <button
+                      key={channel}
+                      className="toggle"
+                      aria-pressed={inboxFilter === channel}
+                      title={status && !status.connected ? status.detail : undefined}
+                      onClick={() => setInboxFilter(channel)}
+                    >
+                      {t.inbox[channel]}
+                      <span className="toggle-count">
+                        {status && !status.connected ? "—" : count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {inboxLoading && inbox.length === 0 ? (
+                <div className="empty">{t.inbox.loading}</div>
+              ) : visibleInbox.length === 0 ? (
+                <div className="empty">
+                  {inboxFilter !== "all" &&
+                  inboxChannels.find((c) => c.channel === inboxFilter && !c.connected)
+                    ? `${t.inbox.notConnected} — ${
+                        inboxChannels.find((c) => c.channel === inboxFilter)?.detail ?? ""
+                      }`
+                    : t.inbox.empty}
+                </div>
+              ) : (
+                <div className="messages">
+                  {visibleInbox.map((message) => (
+                    <article className="message" key={message.id} data-unread={message.unread}>
+                      <div className="message-head">
+                        <span className="message-from">{message.from}</span>
+                        <span className="chip">{t.inbox[message.channel]}</span>
+                        <time className="message-date">
+                          {new Date(message.date).toLocaleString(
+                            language === "ru" ? "ru-RU" : "en-GB",
+                            { dateStyle: "short", timeStyle: "short" },
+                          )}
+                        </time>
+                      </div>
+                      {message.subject ? (
+                        <div className="message-subject">{message.subject}</div>
+                      ) : null}
+                      <p className="message-preview">{message.preview}</p>
+                      {message.link ? (
+                        <a className="chip" href={message.link} target="_blank" rel="noreferrer">
+                          {t.inbox.open}
+                        </a>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : null}
+
           {view === "settings" ? (
             <>
               <h1 className="view-title">{t.settings.title}</h1>
@@ -519,6 +643,55 @@ export default function Page() {
                       />
                     </label>
                   </div>
+                </section>
+
+                <section className="panel">
+                  <h2 className="panel-title">{t.settings.imapSection}</h2>
+                  <p className="hint">{t.settings.imapHint}</p>
+                  <div className="form-grid">
+                    <label className="field" style={{ gridColumn: "span 2" }}>
+                      {t.settings.imapHost}
+                      <input
+                        value={settings.imap.host}
+                        placeholder="imap.gmail.com"
+                        onChange={(e) => setImapField("host", e.target.value)}
+                      />
+                    </label>
+                    <label className="field">
+                      {t.settings.port}
+                      <input
+                        type="number"
+                        value={settings.imap.port}
+                        onChange={(e) => setImapField("port", Number(e.target.value))}
+                      />
+                    </label>
+                    <label className="field">
+                      {t.settings.user}
+                      <input
+                        value={settings.imap.user}
+                        onChange={(e) => setImapField("user", e.target.value)}
+                      />
+                    </label>
+                    <label className="field" style={{ gridColumn: "span 2" }}>
+                      {t.settings.password}
+                      <input
+                        type="password"
+                        value={imapPassword}
+                        placeholder={settings.imap.hasPassword ? t.settings.passwordStored : ""}
+                        onChange={(e) => setImapPassword(e.target.value)}
+                      />
+                    </label>
+                    <label className="field" style={{ gridColumn: "span 2" }}>
+                      {t.settings.telegramBot}
+                      <input
+                        type="password"
+                        value={telegramBot}
+                        placeholder={settings.hasTelegramBot ? t.settings.passwordStored : ""}
+                        onChange={(e) => setTelegramBot(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <p className="hint">{t.settings.telegramBotHint}</p>
                 </section>
 
                 <section className="panel">
@@ -650,6 +823,19 @@ export default function Page() {
                 </button>
                 <button className="btn" onClick={saveSettings} disabled={savingSettings}>
                   {savingSettings ? t.settings.saving : t.settings.save}
+                </button>
+              </div>
+            </>
+          ) : null}
+
+          {view === "inbox" ? (
+            <>
+              <div className="dock-fields" style={{ gridTemplateColumns: "1fr" }}>
+                <span className="dock-status">{t.inbox.count(visibleInbox.length)}</span>
+              </div>
+              <div className="dock-actions">
+                <button className="btn" onClick={loadInbox} disabled={inboxLoading}>
+                  {inboxLoading ? t.inbox.refreshing : t.inbox.refresh}
                 </button>
               </div>
             </>

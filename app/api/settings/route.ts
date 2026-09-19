@@ -17,6 +17,7 @@ export async function POST(request: Request) {
 
   const current = await readSettings();
   const email = (payload.email ?? {}) as Record<string, unknown>;
+  const imap = (payload.imap ?? {}) as Record<string, unknown>;
   const accounts = (payload.accounts ?? {}) as Record<string, unknown>;
   const str = (value: unknown, fallback: string) =>
     typeof value === "string" ? value.trim() : fallback;
@@ -32,6 +33,16 @@ export async function POST(request: Request) {
       from: str(email.from, current.email.from),
       replyTo: str(email.replyTo, current.email.replyTo),
     },
+    imap: {
+      host: str(imap.host, current.imap.host),
+      port: Number(imap.port) > 0 ? Number(imap.port) : current.imap.port,
+      user: str(imap.user, current.imap.user),
+      pass: typeof imap.pass === "string" && imap.pass !== "" ? imap.pass : current.imap.pass,
+    },
+    telegramBotToken:
+      typeof payload.telegramBotToken === "string" && payload.telegramBotToken !== ""
+        ? payload.telegramBotToken.trim()
+        : current.telegramBotToken,
     accounts: {
       instagram: str(accounts.instagram, current.accounts.instagram),
       telegram: str(accounts.telegram, current.accounts.telegram),

@@ -22,6 +22,7 @@ npm run dev                  # http://localhost:3000
 | Data providers | `lib/providers.ts` | Apify → Instagram Graph → generated sample data |
 | Contact parsing | `lib/contacts.ts` | Emails (incl. `name (at) domain.com`), phones, social links |
 | Outreach | `lib/outreach.ts` | SMTP sending + drafts for Instagram and other networks |
+| Inbox | `lib/inbox.ts`, `app/api/inbox` | IMAP, Telegram and Instagram replies |
 | Account settings | `lib/settings.ts`, `app/api/settings` | Sender account, social handles, language |
 | Translations | `lib/i18n.ts` | EN/RU strings |
 | API | `app/api/search`, `app/api/outreach` | JSON endpoints used by the UI |
@@ -31,8 +32,8 @@ npm run dev                  # http://localhost:3000
 
 | Key | Action |
 | --- | --- |
-| `1` … `5` | Switch between Discover, Selected, Compose, Results and Settings |
-| `Alt` + `1` … `5` | Same, and works while a field has focus |
+| `1` … `6` | Switch between Discover, Selected, Compose, Results, Inbox and Settings |
+| `Alt` + `1` … `6` | Same, and works while a field has focus |
 | `⌘/Ctrl` + `B`, `[` | Collapse the sidebar to icons (remembered between visits); hovering the logo shows the same toggle |
 
 ### Data sources
@@ -60,6 +61,18 @@ Settings are written to `.data/settings.json` (mode 600, git-ignored) on the ser
 app; override the location with `DATA_DIR`. The password is never sent back to the browser — the
 UI only learns whether one is stored. The `SMTP_*` env vars still work as defaults when nothing
 is saved yet. **Test connection** runs an SMTP handshake without sending anything.
+
+### Inbox
+
+The **Inbox** page (hotkey `5`) collects replies and filters them by channel:
+
+- **Email** — read over IMAP with the account from Settings (login falls back to the SMTP one).
+- **Telegram** — chats that wrote to the bot whose token is saved in Settings.
+- **Instagram** — conversations from the Messaging API, which needs `IG_ACCESS_TOKEN` and
+  `IG_BUSINESS_ACCOUNT_ID`; Meta only exposes threads where the other side wrote first.
+
+A channel without credentials shows `—` on its filter and explains what is missing instead of
+failing the whole page.
 
 ### Sending
 

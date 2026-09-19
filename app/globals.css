@@ -553,6 +553,71 @@ textarea {
   }
 }
 
+/* ---------- inbox ---------- */
+
+.inbox-filters {
+  margin-bottom: 18px;
+}
+
+.toggle-count {
+  margin-left: 7px;
+  font-size: 11px;
+  opacity: 0.65;
+  font-variant-numeric: tabular-nums;
+}
+
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 860px;
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.message[data-unread="true"] {
+  border-color: rgba(156, 35, 71, 0.45);
+  background: linear-gradient(180deg, rgba(109, 19, 48, 0.16), rgba(255, 255, 255, 0.03));
+}
+
+.message-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.message-from {
+  font-weight: 500;
+}
+
+.message-date {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.message-subject {
+  font-size: 13px;
+}
+
+.message-preview {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 /* ---------- results ---------- */
 
 .rows {

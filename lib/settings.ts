@@ -12,6 +12,13 @@ export type EmailSettings = {
   replyTo: string;
 };
 
+export type ImapSettings = {
+  host: string;
+  port: number;
+  user: string;
+  pass: string;
+};
+
 export type SocialAccounts = {
   instagram: string;
   telegram: string;
@@ -23,7 +30,10 @@ export type SocialAccounts = {
 export type AppSettings = {
   language: Language;
   email: EmailSettings;
+  imap: ImapSettings;
   accounts: SocialAccounts;
+  /** Bot token used to read the Telegram inbox. */
+  telegramBotToken: string;
 };
 
 const DATA_DIR = process.env.DATA_DIR ?? path.join(process.cwd(), ".data");
@@ -40,7 +50,14 @@ function defaults(): AppSettings {
       from: process.env.SMTP_FROM ?? "",
       replyTo: "",
     },
+    imap: {
+      host: process.env.IMAP_HOST ?? "",
+      port: Number(process.env.IMAP_PORT ?? 993),
+      user: process.env.IMAP_USER ?? "",
+      pass: process.env.IMAP_PASS ?? "",
+    },
     accounts: { instagram: "", telegram: "", tiktok: "", youtube: "", website: "" },
+    telegramBotToken: process.env.TELEGRAM_BOT_TOKEN ?? "",
   };
 }
 
@@ -53,7 +70,9 @@ export async function readSettings(): Promise<AppSettings> {
       language: stored.language === "ru" ? "ru" : "en",
       // Stored values win over the env fallbacks, but only where they are set.
       email: { ...base.email, ...(stored.email ?? {}) },
+      imap: { ...base.imap, ...(stored.imap ?? {}) },
       accounts: { ...base.accounts, ...(stored.accounts ?? {}) },
+      telegramBotToken: stored.telegramBotToken ?? base.telegramBotToken,
     };
   } catch {
     return base;
@@ -68,10 +87,13 @@ export async function writeSettings(next: AppSettings): Promise<void> {
 /** The password never leaves the server; the client only learns whether one is stored. */
 export function toPublicSettings(settings: AppSettings) {
   const { pass, ...email } = settings.email;
+  const { pass: imapPass, ...imap } = settings.imap;
   return {
     language: settings.language,
     email: { ...email, hasPassword: pass.length > 0 },
+    imap: { ...imap, hasPassword: imapPass.length > 0 },
     accounts: settings.accounts,
+    hasTelegramBot: settings.telegramBotToken.length > 0,
   };
 }
 
