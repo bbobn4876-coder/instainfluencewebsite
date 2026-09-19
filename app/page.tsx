@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CATEGORIES, COUNTRIES } from "@/lib/countries";
 import { dict, type Language } from "@/lib/i18n";
+import { MAIL_PROVIDERS, guessProvider, providerById } from "@/lib/mailProviders";
 import type { PublicSettings } from "@/lib/settings";
 import type { InboxChannel, InboxMessage, ChannelStatus } from "@/lib/inbox";
 import type { Influencer, OutreachResult } from "@/lib/types";
@@ -117,6 +118,7 @@ export default function Page() {
   const [inboxLoading, setInboxLoading] = useState(false);
   const [inboxLoaded, setInboxLoaded] = useState(false);
   const [telegramBot, setTelegramBot] = useState("");
+  const [providerId, setProviderId] = useState("custom");
   const [imapPassword, setImapPassword] = useState("");
 
   const [collapsed, setCollapsed] = useState(false);
@@ -139,6 +141,10 @@ export default function Page() {
       .then((data: PublicSettings) => {
         setSettings(data);
         setLanguage(data.language);
+        const known = MAIL_PROVIDERS.find(
+          (p) => p.id !== "custom" && p.smtp.host === data.email.host,
+        );
+        if (known) setProviderId(known.id);
       })
       .catch(() => undefined);
   }, []);
@@ -304,6 +310,51 @@ export default function Page() {
   const setEmailField = (key: keyof PublicSettings["email"], value: string | number) =>
     setSettings((prev) => ({ ...prev, email: { ...prev.email, [key]: value } }));
 
+  const applyProvider = (id: string, address = settings.email.user) => {
+    setProviderId(id);
+    const preset = providerById(id);
+    if (!preset || id === "custom") return;
+    const login = preset.fixedUser ?? address;
+    setSettings((prev) => ({
+      ...prev,
+      email: {
+        ...prev.email,
+        host: preset.smtp.host,
+        port: preset.smtp.port,
+        user: login,
+        from: prev.email.from || address,
+      },
+      imap: {
+        ...prev.imap,
+        host: preset.imap.host,
+        port: preset.imap.port,
+        // A send-only provider has no IMAP; keep the address for the login anyway.
+        user: preset.fixedUser ? address : login,
+      },
+    }));
+  };
+
+  // One address field drives the sender, both logins and the provider guess.
+  const setAddress = (address: string) => {
+    const preset = providerById(providerId);
+    const login = preset?.fixedUser ?? address;
+    setSettings((prev) => ({
+      ...prev,
+      email: { ...prev.email, user: login, from: address },
+      imap: { ...prev.imap, user: address },
+    }));
+    if (providerId === "custom") {
+      const guess = guessProvider(address);
+      if (guess) applyProvider(guess.id, address);
+    }
+  };
+
+  // One password field feeds both SMTP and IMAP unless they were set apart.
+  const setBothPasswords = (value: string) => {
+    setPassword(value);
+    setImapPassword(value);
+  };
+
   const setImapField = (key: keyof PublicSettings["imap"], value: string | number) =>
     setSettings((prev) => ({ ...prev, imap: { ...prev.imap, [key]: value } }));
 
@@ -318,6 +369,8 @@ export default function Page() {
     inbox: inbox.filter((m) => m.unread).length || undefined,
     settings: undefined,
   };
+
+  const emailReady = Boolean(settings.email.host && settings.email.user && settings.email.hasPassword);
 
   const visibleInbox =
     inboxFilter === "all" ? inbox : inbox.filter((m) => m.channel === inboxFilter);
@@ -594,55 +647,99 @@ export default function Page() {
                 <section className="panel">
                   <h2 className="panel-title">{t.settings.emailSection}</h2>
                   <p className="hint">{t.settings.emailHint}</p>
+
+                  <div className="toggles">
+                    {MAIL_PROVIDERS.map((provider) => (
+                      <button
+                        key={provider.id}
+                        className="toggle"
+                        aria-pressed={providerId === provider.id}
+                        onClick={() => applyProvider(provider.id)}
+                      >
+                        {provider.label}
+                      </button>
+                    ))}
+                  </div>
+
                   <div className="form-grid">
                     <label className="field" style={{ gridColumn: "span 2" }}>
-                      {t.settings.host}
+                      {t.settings.address}
                       <input
-                        value={settings.email.host}
-                        placeholder="smtp.resend.com"
-                        onChange={(e) => setEmailField("host", e.target.value)}
-                      />
-                    </label>
-                    <label className="field">
-                      {t.settings.port}
-                      <input
-                        type="number"
-                        value={settings.email.port}
-                        onChange={(e) => setEmailField("port", Number(e.target.value))}
-                      />
-                    </label>
-                    <label className="field">
-                      {t.settings.user}
-                      <input
-                        value={settings.email.user}
-                        onChange={(e) => setEmailField("user", e.target.value)}
+                        type="email"
+                        value={settings.email.from || settings.email.user}
+                        placeholder="you@domain.com"
+                        onChange={(e) => setAddress(e.target.value)}
                       />
                     </label>
                     <label className="field" style={{ gridColumn: "span 2" }}>
-                      {t.settings.password}
+                      {t.settings.appPassword}
                       <input
                         type="password"
                         value={password}
                         placeholder={settings.email.hasPassword ? t.settings.passwordStored : ""}
-                        onChange={(e) => setPassword(e.target.value)}
-                      />
-                    </label>
-                    <label className="field" style={{ gridColumn: "span 2" }}>
-                      {t.settings.from}
-                      <input
-                        value={settings.email.from}
-                        placeholder={t.settings.fromPlaceholder}
-                        onChange={(e) => setEmailField("from", e.target.value)}
-                      />
-                    </label>
-                    <label className="field" style={{ gridColumn: "span 2" }}>
-                      {t.settings.replyTo}
-                      <input
-                        value={settings.email.replyTo}
-                        onChange={(e) => setEmailField("replyTo", e.target.value)}
+                        onChange={(e) => setBothPasswords(e.target.value)}
                       />
                     </label>
                   </div>
+
+                  <div className="panel-foot">
+                    <span className="status" data-status={emailReady ? "sent" : "drafted"}>
+                      {emailReady ? t.settings.connected : t.settings.notConnectedYet}
+                    </span>
+                    {providerById(providerId)?.passwordUrl ? (
+                      <a
+                        className="chip"
+                        href={providerById(providerId)!.passwordUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {t.settings.getPassword}
+                      </a>
+                    ) : null}
+                  </div>
+
+                  <details className="advanced">
+                    <summary>{t.settings.advanced}</summary>
+                    <div className="form-grid">
+                      <label className="field" style={{ gridColumn: "span 2" }}>
+                        {t.settings.host}
+                        <input
+                          value={settings.email.host}
+                          onChange={(e) => setEmailField("host", e.target.value)}
+                        />
+                      </label>
+                      <label className="field">
+                        {t.settings.port}
+                        <input
+                          type="number"
+                          value={settings.email.port}
+                          onChange={(e) => setEmailField("port", Number(e.target.value))}
+                        />
+                      </label>
+                      <label className="field">
+                        {t.settings.user}
+                        <input
+                          value={settings.email.user}
+                          onChange={(e) => setEmailField("user", e.target.value)}
+                        />
+                      </label>
+                      <label className="field" style={{ gridColumn: "span 2" }}>
+                        {t.settings.from}
+                        <input
+                          value={settings.email.from}
+                          placeholder={t.settings.fromPlaceholder}
+                          onChange={(e) => setEmailField("from", e.target.value)}
+                        />
+                      </label>
+                      <label className="field" style={{ gridColumn: "span 2" }}>
+                        {t.settings.replyTo}
+                        <input
+                          value={settings.email.replyTo}
+                          onChange={(e) => setEmailField("replyTo", e.target.value)}
+                        />
+                      </label>
+                    </div>
+                  </details>
                 </section>
 
                 <section className="panel">
@@ -681,6 +778,13 @@ export default function Page() {
                         onChange={(e) => setImapPassword(e.target.value)}
                       />
                     </label>
+                  </div>
+                </section>
+
+                <section className="panel">
+                  <h2 className="panel-title">Telegram</h2>
+                  <p className="hint">{t.settings.telegramBotHint}</p>
+                  <div className="form-grid">
                     <label className="field" style={{ gridColumn: "span 2" }}>
                       {t.settings.telegramBot}
                       <input
@@ -691,7 +795,6 @@ export default function Page() {
                       />
                     </label>
                   </div>
-                  <p className="hint">{t.settings.telegramBotHint}</p>
                 </section>
 
                 <section className="panel">

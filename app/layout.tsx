@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Intro from "./Intro";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="glow glow-one" aria-hidden />
         <div className="glow glow-two" aria-hidden />
         <div className="glow glow-three" aria-hidden />
+        <Intro />
         {children}
       </body>
     </html>

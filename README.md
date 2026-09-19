@@ -53,9 +53,11 @@ path in your message.
 
 ### Settings page
 
-Open **Settings** (hotkey `5`) to connect the account outreach is sent from — SMTP host,
-port, user, password, the `From` and `Reply-To` headers — and the social handles you write
-from. The interface language (EN/RU) is set there too.
+Open **Settings** (hotkey `6`) to connect the account outreach is sent from. Pick a provider
+(Gmail, Outlook, Yandex, Mail.ru, Zoho, Resend, SendGrid or custom), type the address and an app
+password — SMTP and IMAP hosts, ports and logins are filled in from the preset, and typing a
+known address picks the provider by itself. Hosts stay editable under **Advanced**. The social
+handles you write from, the Telegram bot token and the interface language (EN/RU) live here too.
 
 Settings are written to `.data/settings.json` (mode 600, git-ignored) on the server running the
 app; override the location with `DATA_DIR`. The password is never sent back to the browser — the
