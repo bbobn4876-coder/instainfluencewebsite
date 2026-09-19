@@ -96,7 +96,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 22px;
+  height: 26px;
   font-weight: 600;
   letter-spacing: -0.02em;
   font-size: 15px;
@@ -108,13 +108,16 @@ body {
   justify-content: center;
 }
 
-.brand-dot {
-  width: 9px;
-  height: 9px;
+.brand-mark {
+  height: 22px;
+  width: auto;
   flex: 0 0 auto;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--burgundy-soft), var(--burgundy));
-  box-shadow: 0 0 16px rgba(156, 35, 71, 0.9);
+  display: block;
+  filter: drop-shadow(0 0 12px rgba(156, 35, 71, 0.55));
+}
+
+.sidebar[data-collapsed="true"] .brand-mark {
+  height: 26px;
 }
 
 .nav {

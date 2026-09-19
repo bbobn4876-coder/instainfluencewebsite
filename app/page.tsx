@@ -199,7 +199,8 @@ export default function Page() {
     <div className="shell">
       <aside className="sidebar" data-collapsed={collapsed}>
         <div className="brand">
-          <span className="brand-dot" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="brand-mark" src="/iconinfluence.png" alt="InstaInfluence" />
           {collapsed ? null : <span className="brand-name">InstaInfluence</span>}
         </div>
         <nav className="nav">
