@@ -6,11 +6,48 @@ import type { Influencer, OutreachResult } from "@/lib/types";
 
 type View = "discover" | "selected" | "compose" | "results";
 
-const VIEWS: Array<{ id: View; label: string }> = [
-  { id: "discover", label: "Discover" },
-  { id: "selected", label: "Selected" },
-  { id: "compose", label: "Compose" },
-  { id: "results", label: "Results" },
+const VIEWS: Array<{ id: View; label: string; hotkey: string; icon: JSX.Element }> = [
+  {
+    id: "discover",
+    label: "Discover",
+    hotkey: "1",
+    icon: (
+      <svg viewBox="0 0 20 20" aria-hidden>
+        <circle cx="9" cy="9" r="5.5" />
+        <path d="M13 13l4 4" />
+      </svg>
+    ),
+  },
+  {
+    id: "selected",
+    label: "Selected",
+    hotkey: "2",
+    icon: (
+      <svg viewBox="0 0 20 20" aria-hidden>
+        <path d="M3.5 10.5l3.5 3.5 9-9" />
+      </svg>
+    ),
+  },
+  {
+    id: "compose",
+    label: "Compose",
+    hotkey: "3",
+    icon: (
+      <svg viewBox="0 0 20 20" aria-hidden>
+        <path d="M13.5 3.5l3 3-9 9H4.5v-3z" />
+      </svg>
+    ),
+  },
+  {
+    id: "results",
+    label: "Results",
+    hotkey: "4",
+    icon: (
+      <svg viewBox="0 0 20 20" aria-hidden>
+        <path d="M4 16V9M10 16V4M16 16v-5" />
+      </svg>
+    ),
+  },
 ];
 
 const DEFAULT_BODY = `Hi {{name}},
@@ -41,21 +78,63 @@ export default function Page() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const [provider, setProvider] = useState<string | null>(null);
 
   const [subject, setSubject] = useState("Paid collaboration with {{name}}");
   const [body, setBody] = useState(DEFAULT_BODY);
   const [channels, setChannels] = useState({ email: true, instagram: true, other: false });
   const [sending, setSending] = useState(false);
   const [results, setResults] = useState<OutreachResult[]>([]);
-  const [emailConfigured, setEmailConfigured] = useState<boolean | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
+
+  // Restore the sidebar state, then keep hotkeys bound for the whole session.
+  useEffect(() => {
+    try {
+      setCollapsed(window.localStorage.getItem("sidebar-collapsed") === "1");
+    } catch {
+      /* storage can be blocked; the default stays expanded */
+    }
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    setCollapsed((prev) => {
+      try {
+        window.localStorage.setItem("sidebar-collapsed", prev ? "0" : "1");
+      } catch {
+        /* ignore */
+      }
+      return !prev;
+    });
+  }, []);
 
   useEffect(() => {
-    fetch("/api/outreach")
-      .then((r) => r.json())
-      .then((d) => setEmailConfigured(Boolean(d.emailConfigured)))
-      .catch(() => setEmailConfigured(false));
-  }, []);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey) {
+        if (event.key.toLowerCase() === "b") {
+          event.preventDefault();
+          toggleSidebar();
+        }
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      const typing =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target?.isContentEditable;
+      // Bare digits only work outside a field; Alt+digit works everywhere.
+      if (typing && !event.altKey) return;
+      const match = VIEWS.find((v) => v.hotkey === event.key);
+      if (match) {
+        event.preventDefault();
+        setView(match.id);
+      } else if (event.key === "[" || (event.altKey && event.key.toLowerCase() === "b")) {
+        event.preventDefault();
+        toggleSidebar();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleSidebar]);
 
   const selected = useMemo(
     () => influencers.filter((i) => selectedIds.includes(i.id)),
@@ -75,7 +154,6 @@ export default function Page() {
       if (!res.ok) throw new Error(data.error ?? "Search failed.");
       setInfluencers(data.influencers ?? []);
       setSelectedIds([]);
-      setProvider(data.provider ?? null);
       setNotice(data.notice ?? null);
       setView("discover");
     } catch (error) {
@@ -102,7 +180,6 @@ export default function Page() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Outreach failed.");
       setResults(data.results ?? []);
-      setEmailConfigured(Boolean(data.emailConfigured));
       setView("results");
     } catch (error) {
       setNotice((error as Error).message);
@@ -120,10 +197,10 @@ export default function Page() {
 
   return (
     <div className="shell">
-      <aside className="sidebar">
+      <aside className="sidebar" data-collapsed={collapsed}>
         <div className="brand">
           <span className="brand-dot" />
-          InstaInfluence
+          {collapsed ? null : <span className="brand-name">InstaInfluence</span>}
         </div>
         <nav className="nav">
           {VIEWS.map((item) => (
@@ -131,18 +208,36 @@ export default function Page() {
               key={item.id}
               className="nav-item"
               aria-current={view === item.id}
+              title={`${item.label} · ${item.hotkey}`}
               onClick={() => setView(item.id)}
             >
-              {item.label}
-              {counts[item.id] ? <span className="nav-count">{counts[item.id]}</span> : null}
+              <span className="nav-icon">
+                {item.icon}
+                {collapsed && counts[item.id] ? <span className="nav-badge" /> : null}
+              </span>
+              {collapsed ? null : (
+                <>
+                  <span className="nav-label">{item.label}</span>
+                  {counts[item.id] ? <span className="nav-count">{counts[item.id]}</span> : null}
+                  <kbd className="nav-key">{item.hotkey}</kbd>
+                </>
+              )}
             </button>
           ))}
         </nav>
-        <div className="sidebar-foot">
-          Source: {provider ?? "—"}
-          <br />
-          Email: {emailConfigured === null ? "…" : emailConfigured ? "SMTP ready" : "draft mode"}
-        </div>
+        <button
+          className="nav-item collapse-toggle"
+          onClick={toggleSidebar}
+          title={`${collapsed ? "Expand" : "Collapse"} sidebar · ⌘B`}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          <span className="nav-icon">
+            <svg viewBox="0 0 20 20" aria-hidden>
+              <path d={collapsed ? "M8 5l5 5-5 5" : "M12 5l-5 5 5 5"} />
+            </svg>
+          </span>
+          {collapsed ? null : <span className="nav-label">Collapse</span>}
+        </button>
       </aside>
 
       <main className="main">

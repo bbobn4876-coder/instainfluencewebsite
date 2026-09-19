@@ -25,6 +25,14 @@ npm run dev                  # http://localhost:3000
 | API | `app/api/search`, `app/api/outreach` | JSON endpoints used by the UI |
 | UI | `app/page.tsx`, `app/globals.css` | Discover · Selected · Compose · Results |
 
+### Keyboard
+
+| Key | Action |
+| --- | --- |
+| `1` … `4` | Switch between Discover, Selected, Compose and Results |
+| `Alt` + `1` … `4` | Same, and works while a field has focus |
+| `⌘/Ctrl` + `B`, `[` | Collapse the sidebar to icons (remembered between visits) |
+
 ### Data sources
 
 Without credentials the app runs on a deterministic generated dataset, so the whole flow is
