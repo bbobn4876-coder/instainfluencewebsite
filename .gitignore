@@ -5,3 +5,6 @@ out
 .env.local
 *.tsbuildinfo
 next-env.d.ts
+
+# Local settings written from the Settings page
+.data

@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 const MAX_RECIPIENTS = 200;
 
 export async function GET() {
-  return NextResponse.json({ emailConfigured: emailConfigured() });
+  return NextResponse.json({ emailConfigured: await emailConfigured() });
 }
 
 export async function POST(request: Request) {
@@ -53,5 +53,5 @@ export async function POST(request: Request) {
     channels,
   });
 
-  return NextResponse.json({ results, emailConfigured: emailConfigured() });
+  return NextResponse.json({ results, emailConfigured: await emailConfigured() });
 }

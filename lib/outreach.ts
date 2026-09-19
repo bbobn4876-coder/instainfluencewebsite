@@ -1,4 +1,5 @@
 import nodemailer, { type Transporter } from "nodemailer";
+import { normalizeHandle, readSettings } from "./settings";
 import type { Influencer, OutreachResult } from "./types";
 
 export type OutreachRequest = {
@@ -18,20 +19,42 @@ export function renderTemplate(template: string, influencer: Influencer): string
     .replace(/\{\{\s*city\s*\}\}/g, influencer.city ?? influencer.country);
 }
 
-function transporter(): Transporter | null {
-  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return null;
-  const port = Number(SMTP_PORT ?? 587);
-  return nodemailer.createTransport({
-    host: SMTP_HOST,
-    port,
-    secure: port === 465,
-    auth: { user: SMTP_USER, pass: SMTP_PASS },
-  });
+type MailAccount = { transport: Transporter; from: string; replyTo?: string };
+
+/** Built from the account saved in Settings, falling back to the SMTP_* env vars. */
+async function mailAccount(): Promise<MailAccount | null> {
+  const { email } = await readSettings();
+  if (!email.host || !email.user || !email.pass) return null;
+  const port = email.port > 0 ? email.port : 587;
+  return {
+    transport: nodemailer.createTransport({
+      host: email.host,
+      port,
+      secure: port === 465,
+      auth: { user: email.user, pass: email.pass },
+      // Fail fast instead of hanging the request when the host is unreachable.
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 20_000,
+    }),
+    from: email.from || email.user,
+    replyTo: email.replyTo || undefined,
+  };
 }
 
-export function emailConfigured(): boolean {
-  return transporter() !== null;
+export async function emailConfigured(): Promise<boolean> {
+  return (await mailAccount()) !== null;
+}
+
+export async function verifyEmailAccount(): Promise<{ ok: boolean; detail: string }> {
+  const account = await mailAccount();
+  if (!account) return { ok: false, detail: "No email account saved." };
+  try {
+    await account.transport.verify();
+    return { ok: true, detail: `Connected as ${account.from}` };
+  } catch (error) {
+    return { ok: false, detail: (error as Error).message };
+  }
 }
 
 function dmUrl(platform: string, url: string, username: string): string {
@@ -42,8 +65,9 @@ function dmUrl(platform: string, url: string, username: string): string {
 
 export async function runOutreach(request: OutreachRequest): Promise<OutreachResult[]> {
   const results: OutreachResult[] = [];
-  const mailer = transporter();
-  const from = process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "";
+  const account = await mailAccount();
+  const { accounts } = await readSettings();
+  const sender = normalizeHandle(accounts.instagram);
 
   for (const influencer of request.influencers) {
     const subject = renderTemplate(request.subject, influencer);
@@ -61,19 +85,25 @@ export async function runOutreach(request: OutreachRequest): Promise<OutreachRes
         });
       } else {
         for (const to of influencer.emails) {
-          if (!mailer) {
+          if (!account) {
             results.push({
               influencerId: influencer.id,
               username: influencer.username,
               channel: "email",
               target: to,
               status: "drafted",
-              detail: "SMTP is not configured — message prepared but not sent.",
+              detail: "No email account connected — message prepared but not sent.",
             });
             continue;
           }
           try {
-            await mailer.sendMail({ from, to, subject, text: body });
+            await account.transport.sendMail({
+              from: account.from,
+              replyTo: account.replyTo,
+              to,
+              subject,
+              text: body,
+            });
             results.push({
               influencerId: influencer.id,
               username: influencer.username,
@@ -104,7 +134,7 @@ export async function runOutreach(request: OutreachRequest): Promise<OutreachRes
         channel: "instagram",
         target: dmUrl("instagram", influencer.profileUrl, influencer.username),
         status: "drafted",
-        detail: body,
+        detail: sender ? `from @${sender} · ${body}` : body,
       });
     }
 

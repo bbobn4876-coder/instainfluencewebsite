@@ -2,14 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CATEGORIES, COUNTRIES } from "@/lib/countries";
+import { dict, type Language } from "@/lib/i18n";
+import type { PublicSettings } from "@/lib/settings";
 import type { Influencer, OutreachResult } from "@/lib/types";
 
-type View = "discover" | "selected" | "compose" | "results";
+type View = "discover" | "selected" | "compose" | "results" | "settings";
 
-const VIEWS: Array<{ id: View; label: string; hotkey: string; icon: JSX.Element }> = [
+const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
   {
     id: "discover",
-    label: "Discover",
     hotkey: "1",
     icon: (
       <svg viewBox="0 0 20 20" aria-hidden>
@@ -20,7 +21,6 @@ const VIEWS: Array<{ id: View; label: string; hotkey: string; icon: JSX.Element 
   },
   {
     id: "selected",
-    label: "Selected",
     hotkey: "2",
     icon: (
       <svg viewBox="0 0 20 20" aria-hidden>
@@ -30,7 +30,6 @@ const VIEWS: Array<{ id: View; label: string; hotkey: string; icon: JSX.Element 
   },
   {
     id: "compose",
-    label: "Compose",
     hotkey: "3",
     icon: (
       <svg viewBox="0 0 20 20" aria-hidden>
@@ -40,7 +39,6 @@ const VIEWS: Array<{ id: View; label: string; hotkey: string; icon: JSX.Element 
   },
   {
     id: "results",
-    label: "Results",
     hotkey: "4",
     icon: (
       <svg viewBox="0 0 20 20" aria-hidden>
@@ -48,16 +46,23 @@ const VIEWS: Array<{ id: View; label: string; hotkey: string; icon: JSX.Element 
       </svg>
     ),
   },
+  {
+    id: "settings",
+    hotkey: "5",
+    icon: (
+      <svg viewBox="0 0 20 20" aria-hidden>
+        <circle cx="10" cy="10" r="2.6" />
+        <path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M15.3 4.7l-1.4 1.4M6.1 13.9l-1.4 1.4" />
+      </svg>
+    ),
+  },
 ];
 
-const DEFAULT_BODY = `Hi {{name}},
-
-I've been following @{{username}} and love how your {{category}} work lands with your {{followers}} followers in {{city}}.
-
-We're planning a paid collaboration this quarter and would like you in it. Happy to send the brief and rates — just let me know if you're open.
-
-Best,
-`;
+const EMPTY_SETTINGS: PublicSettings = {
+  language: "en",
+  email: { host: "", port: 587, user: "", from: "", replyTo: "", hasPassword: false },
+  accounts: { instagram: "", telegram: "", tiktok: "", youtube: "", website: "" },
+};
 
 function formatFollowers(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -67,6 +72,8 @@ function formatFollowers(n: number): string {
 
 export default function Page() {
   const [view, setView] = useState<View>("discover");
+  const [language, setLanguage] = useState<Language>("en");
+  const t = dict(language);
 
   const [country, setCountry] = useState("US");
   const [category, setCategory] = useState("fashion");
@@ -79,20 +86,40 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const [subject, setSubject] = useState("Paid collaboration with {{name}}");
-  const [body, setBody] = useState(DEFAULT_BODY);
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [templateEdited, setTemplateEdited] = useState(false);
   const [channels, setChannels] = useState({ email: true, instagram: true, other: false });
   const [sending, setSending] = useState(false);
   const [results, setResults] = useState<OutreachResult[]>([]);
+
+  const [settings, setSettings] = useState<PublicSettings>(EMPTY_SETTINGS);
+  const [password, setPassword] = useState("");
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [testing, setTesting] = useState(false);
+
   const [collapsed, setCollapsed] = useState(false);
 
-  // Restore the sidebar state, then keep hotkeys bound for the whole session.
+  // Keep the untouched template in the active language.
+  useEffect(() => {
+    if (templateEdited) return;
+    setSubject(t.compose.defaultSubject);
+    setBody(t.compose.defaultBody);
+  }, [t, templateEdited]);
+
   useEffect(() => {
     try {
       setCollapsed(window.localStorage.getItem("sidebar-collapsed") === "1");
     } catch {
       /* storage can be blocked; the default stays expanded */
     }
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((data: PublicSettings) => {
+        setSettings(data);
+        setLanguage(data.language);
+      })
+      .catch(() => undefined);
   }, []);
 
   const toggleSidebar = useCallback(() => {
@@ -188,28 +215,89 @@ export default function Page() {
     }
   }, [selected, subject, body, channels]);
 
+  const saveSettings = useCallback(async () => {
+    setSavingSettings(true);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          language,
+          email: { ...settings.email, pass: password },
+          accounts: settings.accounts,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not save settings.");
+      setSettings(data);
+      setPassword("");
+      setNotice(t.settings.saved);
+    } catch (error) {
+      setNotice((error as Error).message);
+    } finally {
+      setSavingSettings(false);
+    }
+  }, [language, settings, password, t]);
+
+  const testEmail = useCallback(async () => {
+    setTesting(true);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/settings/test", { method: "POST" });
+      const data = await res.json();
+      setNotice(data.detail ?? (res.ok ? "ok" : "failed"));
+    } catch (error) {
+      setNotice((error as Error).message);
+    } finally {
+      setTesting(false);
+    }
+  }, []);
+
+  const setEmailField = (key: keyof PublicSettings["email"], value: string | number) =>
+    setSettings((prev) => ({ ...prev, email: { ...prev.email, [key]: value } }));
+
+  const setAccount = (key: keyof PublicSettings["accounts"], value: string) =>
+    setSettings((prev) => ({ ...prev, accounts: { ...prev.accounts, [key]: value } }));
+
   const counts: Record<View, number | undefined> = {
     discover: influencers.length || undefined,
     selected: selectedIds.length || undefined,
     compose: undefined,
     results: results.length || undefined,
+    settings: undefined,
   };
+
+  const composeMode = view === "compose" || view === "settings";
 
   return (
     <div className="shell">
       <aside className="sidebar" data-collapsed={collapsed}>
-        <div className="brand">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="brand-mark" src="/iconinfluence.png" alt="InstaInfluence" />
+        <button
+          className="brand"
+          onClick={toggleSidebar}
+          title={`${collapsed ? t.nav.expand : t.nav.collapse} · ⌘B`}
+          aria-label={collapsed ? t.nav.expand : t.nav.collapse}
+        >
+          <span className="brand-mark-wrap">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="brand-mark" src="/iconinfluence.png" alt="InstaInfluence" />
+            <span className="brand-collapse" aria-hidden>
+              <svg viewBox="0 0 20 20">
+                <path d={collapsed ? "M8 5l5 5-5 5" : "M12 5l-5 5 5 5"} />
+              </svg>
+            </span>
+          </span>
           {collapsed ? null : <span className="brand-name">InstaInfluence</span>}
-        </div>
+        </button>
+
         <nav className="nav">
           {VIEWS.map((item) => (
             <button
               key={item.id}
               className="nav-item"
               aria-current={view === item.id}
-              title={`${item.label} · ${item.hotkey}`}
+              title={`${t.nav[item.id]} · ${item.hotkey}`}
               onClick={() => setView(item.id)}
             >
               <span className="nav-icon">
@@ -218,7 +306,7 @@ export default function Page() {
               </span>
               {collapsed ? null : (
                 <>
-                  <span className="nav-label">{item.label}</span>
+                  <span className="nav-label">{t.nav[item.id]}</span>
                   {counts[item.id] ? <span className="nav-count">{counts[item.id]}</span> : null}
                   <kbd className="nav-key">{item.hotkey}</kbd>
                 </>
@@ -226,19 +314,6 @@ export default function Page() {
             </button>
           ))}
         </nav>
-        <button
-          className="nav-item collapse-toggle"
-          onClick={toggleSidebar}
-          title={`${collapsed ? "Expand" : "Collapse"} sidebar · ⌘B`}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          <span className="nav-icon">
-            <svg viewBox="0 0 20 20" aria-hidden>
-              <path d={collapsed ? "M8 5l5 5-5 5" : "M12 5l-5 5 5 5"} />
-            </svg>
-          </span>
-          {collapsed ? null : <span className="nav-label">Collapse</span>}
-        </button>
       </aside>
 
       <main className="main">
@@ -247,16 +322,10 @@ export default function Page() {
 
           {view === "discover" ? (
             <>
-              <h1 className="view-title">Discover</h1>
-              <p className="view-sub">
-                Pick a geo below and pull public Instagram profiles with the contacts stated in
-                their bio — email, phone and links to their other networks. Click a card to select
-                it for outreach.
-              </p>
+              <h1 className="view-title">{t.discover.title}</h1>
+              <p className="view-sub">{t.discover.sub}</p>
               {influencers.length === 0 ? (
-                <div className="empty">
-                  {loading ? "Parsing profiles…" : "Set your filters in the bar below and run a search."}
-                </div>
+                <div className="empty">{loading ? t.discover.loading : t.discover.empty}</div>
               ) : (
                 <div className="grid">
                   {influencers.map((influencer) => (
@@ -265,6 +334,7 @@ export default function Page() {
                       influencer={influencer}
                       selected={selectedIds.includes(influencer.id)}
                       onToggle={() => toggle(influencer.id)}
+                      labels={t.discover}
                     />
                   ))}
                 </div>
@@ -274,10 +344,10 @@ export default function Page() {
 
           {view === "selected" ? (
             <>
-              <h1 className="view-title">Selected</h1>
-              <p className="view-sub">{selected.length} profile(s) queued for outreach.</p>
+              <h1 className="view-title">{t.selected.title}</h1>
+              <p className="view-sub">{t.selected.sub(selected.length)}</p>
               {selected.length === 0 ? (
-                <div className="empty">Nothing selected yet — pick profiles in Discover.</div>
+                <div className="empty">{t.selected.empty}</div>
               ) : (
                 <div className="grid">
                   {selected.map((influencer) => (
@@ -286,6 +356,7 @@ export default function Page() {
                       influencer={influencer}
                       selected
                       onToggle={() => toggle(influencer.id)}
+                      labels={t.discover}
                     />
                   ))}
                 </div>
@@ -295,9 +366,9 @@ export default function Page() {
 
           {view === "compose" ? (
             <>
-              <h1 className="view-title">Compose</h1>
+              <h1 className="view-title">{t.compose.title}</h1>
               <p className="view-sub">
-                Placeholders: {"{{name}}"}, {"{{username}}"}, {"{{followers}}"}, {"{{category}}"},{" "}
+                {t.compose.sub} {"{{name}}"}, {"{{username}}"}, {"{{followers}}"}, {"{{category}}"},{" "}
                 {"{{city}}"}, {"{{country}}"}.
               </p>
               <div className="compose">
@@ -309,39 +380,47 @@ export default function Page() {
                       aria-pressed={channels[channel]}
                       onClick={() => setChannels((c) => ({ ...c, [channel]: !c[channel] }))}
                     >
-                      {channel === "other" ? "other socials" : channel}
+                      {t.compose[channel]}
                     </button>
                   ))}
                 </div>
                 <label className="field">
-                  subject
-                  <input value={subject} onChange={(e) => setSubject(e.target.value)} />
+                  {t.compose.subject}
+                  <input
+                    value={subject}
+                    onChange={(e) => {
+                      setTemplateEdited(true);
+                      setSubject(e.target.value);
+                    }}
+                  />
                 </label>
                 <label className="field">
-                  message
-                  <textarea rows={12} value={body} onChange={(e) => setBody(e.target.value)} />
+                  {t.compose.message}
+                  <textarea
+                    rows={12}
+                    value={body}
+                    onChange={(e) => {
+                      setTemplateEdited(true);
+                      setBody(e.target.value);
+                    }}
+                  />
                 </label>
-                <p className="hint">
-                  Emails go out over your SMTP account when it is configured. Instagram and other
-                  networks have no compliant API for cold messages, so those are prepared as ready
-                  drafts with a direct link to the conversation — you send them with one click from
-                  Results.
-                </p>
+                <p className="hint">{t.compose.hint}</p>
               </div>
             </>
           ) : null}
 
           {view === "results" ? (
             <>
-              <h1 className="view-title">Results</h1>
+              <h1 className="view-title">{t.results.title}</h1>
               <p className="view-sub">
-                {results.filter((r) => r.status === "sent").length} sent ·{" "}
-                {results.filter((r) => r.status === "drafted").length} drafted ·{" "}
-                {results.filter((r) => r.status === "skipped").length} skipped ·{" "}
-                {results.filter((r) => r.status === "failed").length} failed
+                {results.filter((r) => r.status === "sent").length} {t.results.sent} ·{" "}
+                {results.filter((r) => r.status === "drafted").length} {t.results.drafted} ·{" "}
+                {results.filter((r) => r.status === "skipped").length} {t.results.skipped} ·{" "}
+                {results.filter((r) => r.status === "failed").length} {t.results.failed}
               </p>
               {results.length === 0 ? (
-                <div className="empty">No outreach run yet.</div>
+                <div className="empty">{t.results.empty}</div>
               ) : (
                 <div className="rows">
                   {results.map((result, index) => (
@@ -350,7 +429,7 @@ export default function Page() {
                       <span className="muted">{result.channel}</span>
                       {result.target.startsWith("http") ? (
                         <a className="chip" href={result.target} target="_blank" rel="noreferrer">
-                          open
+                          {t.results.open}
                         </a>
                       ) : (
                         <span className="muted" title={result.detail}>
@@ -358,12 +437,109 @@ export default function Page() {
                         </span>
                       )}
                       <span className="status" data-status={result.status}>
-                        {result.status}
+                        {t.results[result.status]}
                       </span>
                     </div>
                   ))}
                 </div>
               )}
+            </>
+          ) : null}
+
+          {view === "settings" ? (
+            <>
+              <h1 className="view-title">{t.settings.title}</h1>
+              <p className="view-sub">{t.settings.sub}</p>
+              <div className="compose">
+                <section className="panel">
+                  <h2 className="panel-title">{t.settings.language}</h2>
+                  <div className="toggles">
+                    {(["en", "ru"] as const).map((code) => (
+                      <button
+                        key={code}
+                        className="toggle"
+                        aria-pressed={language === code}
+                        onClick={() => setLanguage(code)}
+                      >
+                        {code.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="panel">
+                  <h2 className="panel-title">{t.settings.emailSection}</h2>
+                  <p className="hint">{t.settings.emailHint}</p>
+                  <div className="form-grid">
+                    <label className="field" style={{ gridColumn: "span 2" }}>
+                      {t.settings.host}
+                      <input
+                        value={settings.email.host}
+                        placeholder="smtp.resend.com"
+                        onChange={(e) => setEmailField("host", e.target.value)}
+                      />
+                    </label>
+                    <label className="field">
+                      {t.settings.port}
+                      <input
+                        type="number"
+                        value={settings.email.port}
+                        onChange={(e) => setEmailField("port", Number(e.target.value))}
+                      />
+                    </label>
+                    <label className="field">
+                      {t.settings.user}
+                      <input
+                        value={settings.email.user}
+                        onChange={(e) => setEmailField("user", e.target.value)}
+                      />
+                    </label>
+                    <label className="field" style={{ gridColumn: "span 2" }}>
+                      {t.settings.password}
+                      <input
+                        type="password"
+                        value={password}
+                        placeholder={settings.email.hasPassword ? t.settings.passwordStored : ""}
+                        onChange={(e) => setPassword(e.target.value)}
+                      />
+                    </label>
+                    <label className="field" style={{ gridColumn: "span 2" }}>
+                      {t.settings.from}
+                      <input
+                        value={settings.email.from}
+                        placeholder={t.settings.fromPlaceholder}
+                        onChange={(e) => setEmailField("from", e.target.value)}
+                      />
+                    </label>
+                    <label className="field" style={{ gridColumn: "span 2" }}>
+                      {t.settings.replyTo}
+                      <input
+                        value={settings.email.replyTo}
+                        onChange={(e) => setEmailField("replyTo", e.target.value)}
+                      />
+                    </label>
+                  </div>
+                </section>
+
+                <section className="panel">
+                  <h2 className="panel-title">{t.settings.accountsSection}</h2>
+                  <p className="hint">{t.settings.accountsHint}</p>
+                  <div className="form-grid">
+                    {(["instagram", "telegram", "tiktok", "youtube", "website"] as const).map(
+                      (key) => (
+                        <label className="field" key={key} style={{ gridColumn: "span 2" }}>
+                          {t.settings[key]}
+                          <input
+                            value={settings.accounts[key]}
+                            placeholder={key === "website" ? "https://" : "@handle"}
+                            onChange={(e) => setAccount(key, e.target.value)}
+                          />
+                        </label>
+                      ),
+                    )}
+                  </div>
+                </section>
+              </div>
             </>
           ) : null}
         </div>
@@ -373,7 +549,7 @@ export default function Page() {
             <>
               <div className="dock-fields">
                 <label className="field">
-                  geo
+                  {t.discover.geo}
                   <select value={country} onChange={(e) => setCountry(e.target.value)}>
                     {COUNTRIES.map((c) => (
                       <option key={c.code} value={c.code}>
@@ -383,7 +559,7 @@ export default function Page() {
                   </select>
                 </label>
                 <label className="field">
-                  niche
+                  {t.discover.niche}
                   <select value={category} onChange={(e) => setCategory(e.target.value)}>
                     {CATEGORIES.map((c) => (
                       <option key={c} value={c}>
@@ -393,15 +569,15 @@ export default function Page() {
                   </select>
                 </label>
                 <label className="field">
-                  keyword
+                  {t.discover.keyword}
                   <input
                     value={keyword}
-                    placeholder="handle or bio text"
+                    placeholder={t.discover.keywordPlaceholder}
                     onChange={(e) => setKeyword(e.target.value)}
                   />
                 </label>
                 <label className="field">
-                  min followers
+                  {t.discover.minFollowers}
                   <input
                     type="number"
                     min={0}
@@ -411,7 +587,7 @@ export default function Page() {
                   />
                 </label>
                 <label className="field">
-                  max followers
+                  {t.discover.maxFollowers}
                   <input
                     type="number"
                     min={0}
@@ -422,40 +598,68 @@ export default function Page() {
                 </label>
               </div>
               <div className="dock-actions">
-                <span className="dock-status">{selectedIds.length} selected</span>
+                <span className="dock-status">{t.discover.selectedCount(selectedIds.length)}</span>
                 <button
                   className="btn btn-ghost"
                   onClick={() => setSelectedIds(influencers.map((i) => i.id))}
                   disabled={influencers.length === 0}
                 >
-                  Select all
+                  {t.discover.selectAll}
                 </button>
                 <button className="btn" onClick={search} disabled={loading}>
-                  {loading ? "Parsing…" : "Parse profiles"}
+                  {loading ? t.discover.parsing : t.discover.parse}
                 </button>
               </div>
             </>
-          ) : (
+          ) : null}
+
+          {view === "compose" ? (
             <>
               <div className="dock-fields" style={{ gridTemplateColumns: "1fr" }}>
                 <span className="dock-status">
-                  {selected.length} recipient(s) ·{" "}
+                  {t.compose.recipients(selected.length)} ·{" "}
                   {Object.entries(channels)
                     .filter(([, on]) => on)
-                    .map(([name]) => name)
-                    .join(", ") || "no channel"}
+                    .map(([name]) => t.compose[name as "email" | "instagram" | "other"])
+                    .join(", ") || t.compose.noChannel}
                 </span>
               </div>
               <div className="dock-actions">
                 <button className="btn btn-ghost" onClick={() => setView("selected")}>
-                  Back to selection
+                  {t.compose.back}
                 </button>
                 <button className="btn" onClick={send} disabled={sending || selected.length === 0}>
-                  {sending ? "Sending…" : "Send outreach"}
+                  {sending ? t.compose.sending : t.compose.send}
                 </button>
               </div>
             </>
-          )}
+          ) : null}
+
+          {view === "settings" ? (
+            <>
+              <div className="dock-fields" style={{ gridTemplateColumns: "1fr" }}>
+                <span className="dock-status">
+                  {settings.email.hasPassword && settings.email.host
+                    ? `${settings.email.from || settings.email.user}`
+                    : t.settings.emailSection}
+                </span>
+              </div>
+              <div className="dock-actions">
+                <button className="btn btn-ghost" onClick={testEmail} disabled={testing}>
+                  {testing ? t.settings.testing : t.settings.test}
+                </button>
+                <button className="btn" onClick={saveSettings} disabled={savingSettings}>
+                  {savingSettings ? t.settings.saving : t.settings.save}
+                </button>
+              </div>
+            </>
+          ) : null}
+
+          {view === "results" ? (
+            <div className="dock-fields" style={{ gridTemplateColumns: "1fr" }}>
+              <span className="dock-status">{t.results.title}</span>
+            </div>
+          ) : null}
         </div>
       </main>
     </div>
@@ -466,10 +670,12 @@ function InfluencerCard({
   influencer,
   selected,
   onToggle,
+  labels,
 }: {
   influencer: Influencer;
   selected: boolean;
   onToggle: () => void;
+  labels: { followers: string; engagement: string; nicheLabel: string };
 }) {
   return (
     <div
@@ -500,17 +706,17 @@ function InfluencerCard({
       <div className="stats">
         <div>
           <div className="stat-value">{formatFollowers(influencer.followers)}</div>
-          <div className="stat-label">followers</div>
+          <div className="stat-label">{labels.followers}</div>
         </div>
         {influencer.engagementRate > 0 ? (
           <div>
             <div className="stat-value">{influencer.engagementRate}%</div>
-            <div className="stat-label">engagement</div>
+            <div className="stat-label">{labels.engagement}</div>
           </div>
         ) : null}
         <div>
           <div className="stat-value">{influencer.category}</div>
-          <div className="stat-label">niche</div>
+          <div className="stat-label">{labels.nicheLabel}</div>
         </div>
       </div>
 

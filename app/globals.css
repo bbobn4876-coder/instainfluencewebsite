@@ -96,11 +96,56 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 26px;
+  height: 34px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
   font-weight: 600;
   letter-spacing: -0.02em;
   font-size: 15px;
-  padding-left: 12px;
+  cursor: pointer;
+}
+
+.brand-mark-wrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+}
+
+.brand-collapse {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--surface-strong);
+  color: var(--ink);
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.brand-collapse svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.brand:hover .brand-collapse,
+.brand:focus-visible .brand-collapse {
+  opacity: 1;
+}
+
+.brand:hover .brand-mark {
+  opacity: 0;
 }
 
 .sidebar[data-collapsed="true"] .brand {
@@ -110,6 +155,7 @@ body {
 
 .brand-mark {
   height: 22px;
+  transition: opacity 0.16s ease;
   width: auto;
   flex: 0 0 auto;
   display: block;
@@ -213,10 +259,6 @@ body {
 .nav-item:hover .nav-key,
 .nav-item[aria-current="true"] .nav-key {
   opacity: 1;
-}
-
-.collapse-toggle {
-  margin-top: auto;
 }
 
 /* ---------- main ---------- */
@@ -476,6 +518,39 @@ textarea {
   font-size: 11px;
   color: var(--muted);
   line-height: 1.6;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.panel-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.panel .hint {
+  margin: -6px 0 0;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 720px) {
+  .form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* ---------- results ---------- */
