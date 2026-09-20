@@ -7,6 +7,8 @@ export type MailProvider = {
   passwordUrl?: string;
   /** Some providers authenticate with a fixed login instead of the address. */
   fixedUser?: string;
+  /** Shown in the UI so it is obvious what each field expects. */
+  example: { user: string; pass: string };
 };
 
 export const MAIL_PROVIDERS: MailProvider[] = [
@@ -16,6 +18,7 @@ export const MAIL_PROVIDERS: MailProvider[] = [
     smtp: { host: "smtp.gmail.com", port: 587 },
     imap: { host: "imap.gmail.com", port: 993 },
     passwordUrl: "https://myaccount.google.com/apppasswords",
+    example: { user: "you@gmail.com", pass: "abcd efgh ijkl mnop" },
   },
   {
     id: "outlook",
@@ -23,6 +26,7 @@ export const MAIL_PROVIDERS: MailProvider[] = [
     smtp: { host: "smtp-mail.outlook.com", port: 587 },
     imap: { host: "outlook.office365.com", port: 993 },
     passwordUrl: "https://account.microsoft.com/security",
+    example: { user: "you@outlook.com", pass: "xxxxxxxxxxxxxxxx" },
   },
   {
     id: "yandex",
@@ -30,6 +34,7 @@ export const MAIL_PROVIDERS: MailProvider[] = [
     smtp: { host: "smtp.yandex.ru", port: 465 },
     imap: { host: "imap.yandex.ru", port: 993 },
     passwordUrl: "https://id.yandex.ru/security/app-passwords",
+    example: { user: "you@yandex.ru", pass: "xxxxxxxxxxxxxxxx" },
   },
   {
     id: "mailru",
@@ -37,12 +42,14 @@ export const MAIL_PROVIDERS: MailProvider[] = [
     smtp: { host: "smtp.mail.ru", port: 465 },
     imap: { host: "imap.mail.ru", port: 993 },
     passwordUrl: "https://account.mail.ru/user/2-step-auth/passwords",
+    example: { user: "you@mail.ru", pass: "xxxxxxxxxxxxxxxx" },
   },
   {
     id: "zoho",
     label: "Zoho",
     smtp: { host: "smtp.zoho.com", port: 465 },
     imap: { host: "imap.zoho.com", port: 993 },
+    example: { user: "you@zoho.com", pass: "xxxxxxxxxxxxxxxx" },
   },
   {
     id: "resend",
@@ -51,6 +58,7 @@ export const MAIL_PROVIDERS: MailProvider[] = [
     imap: { host: "", port: 993 },
     fixedUser: "resend",
     passwordUrl: "https://resend.com/api-keys",
+    example: { user: "resend", pass: "re_xxxxxxxxxxxxxxxx" },
   },
   {
     id: "sendgrid",
@@ -59,12 +67,14 @@ export const MAIL_PROVIDERS: MailProvider[] = [
     imap: { host: "", port: 993 },
     fixedUser: "apikey",
     passwordUrl: "https://app.sendgrid.com/settings/api_keys",
+    example: { user: "apikey", pass: "SG.xxxxxxxxxxxxxxxx" },
   },
   {
     id: "custom",
     label: "Custom",
     smtp: { host: "", port: 587 },
     imap: { host: "", port: 993 },
+    example: { user: "you@yourdomain.com", pass: "your mailbox password" },
   },
 ];
 

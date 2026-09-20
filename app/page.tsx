@@ -337,7 +337,7 @@ export default function Page() {
   const setEmailField = (key: keyof PublicSettings["email"], value: string | number) =>
     setSettings((prev) => ({ ...prev, email: { ...prev.email, [key]: value } }));
 
-  const applyProvider = (id: string, address = settings.email.user) => {
+  const applyProvider = (id: string, address = settings.email.from || settings.email.user) => {
     setProviderId(id);
     const preset = providerById(id);
     if (!preset || id === "custom") return;
@@ -396,6 +396,16 @@ export default function Page() {
     inbox: inbox.filter((m) => m.unread).length || undefined,
     settings: undefined,
   };
+
+  const currentProvider = providerById(providerId);
+  // Providers with a fixed login (Resend, SendGrid) keep the address in `from`
+  // only — showing `user` there would put "resend" in the address field.
+  const addressValue = currentProvider?.fixedUser
+    ? settings.email.from
+    : settings.email.from || settings.email.user;
+  const addressExample = currentProvider?.fixedUser
+    ? "you@yourdomain.com"
+    : (currentProvider?.example.user ?? "you@yourdomain.com");
 
   const emailReady = Boolean(settings.email.host && settings.email.user && settings.email.hasPassword);
 
@@ -695,19 +705,32 @@ export default function Page() {
                       {t.settings.address}
                       <input
                         type="email"
-                        value={settings.email.from || settings.email.user}
-                        placeholder="you@domain.com"
+                        value={addressValue}
+                        placeholder={addressExample}
                         onChange={(e) => setAddress(e.target.value)}
                       />
+                      <span className="field-hint">
+                        {t.settings.addressHint} {t.settings.example}: <code>{addressExample}</code>
+                      </span>
                     </label>
                     <label className="field" style={{ gridColumn: "span 2" }}>
                       {t.settings.appPassword}
                       <input
                         type="password"
                         value={password}
-                        placeholder={settings.email.hasPassword ? t.settings.passwordStored : ""}
+                        placeholder={
+                          settings.email.hasPassword
+                            ? t.settings.passwordStored
+                            : (currentProvider?.example.pass ?? "")
+                        }
                         onChange={(e) => setBothPasswords(e.target.value)}
                       />
+                      <span className="field-hint">
+                        {currentProvider?.fixedUser
+                          ? t.settings.appPasswordKey
+                          : t.settings.appPasswordWhat}{" "}
+                        {t.settings.example}: <code>{currentProvider?.example.pass ?? ""}</code>
+                      </span>
                     </label>
                   </div>
 
@@ -746,9 +769,10 @@ export default function Page() {
                         />
                       </label>
                       <label className="field">
-                        {t.settings.user}
+                        {t.settings.userField}
                         <input
                           value={settings.email.user}
+                          placeholder={currentProvider?.example.user ?? ""}
                           onChange={(e) => setEmailField("user", e.target.value)}
                         />
                       </label>
@@ -768,6 +792,7 @@ export default function Page() {
                         />
                       </label>
                     </div>
+                    <p className="hint">{t.settings.userHint}</p>
                   </details>
                 </section>
 
@@ -870,11 +895,13 @@ export default function Page() {
                     onChange={setCountry}
                     searchPlaceholder={t.discover.searchPlaceholder}
                     emptyLabel={t.discover.nothingFound}
-                    options={COUNTRIES.map((c) => ({
-                      value: c.code,
-                      label: `${c.flag} ${c.name}`,
-                      hint: c.code,
-                    }))}
+                    options={[...COUNTRIES]
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((c) => ({
+                        value: c.code,
+                        label: `${c.flag} ${c.name}`,
+                        hint: c.code,
+                      }))}
                   />
                 </div>
                 <div className="field">

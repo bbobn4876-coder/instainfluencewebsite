@@ -21,6 +21,23 @@ export const COUNTRIES: Country[] = [
   { code: "CA", name: "Canada", flag: "🇨🇦", cities: ["Toronto", "Vancouver"] },
   { code: "NL", name: "Netherlands", flag: "🇳🇱", cities: ["Amsterdam", "Rotterdam"] },
   { code: "SE", name: "Sweden", flag: "🇸🇪", cities: ["Stockholm", "Gothenburg"] },
+  { code: "EE", name: "Estonia", flag: "🇪🇪", cities: ["Tallinn", "Tartu"] },
+  { code: "LV", name: "Latvia", flag: "🇱🇻", cities: ["Riga", "Jurmala"] },
+  { code: "LT", name: "Lithuania", flag: "🇱🇹", cities: ["Vilnius", "Kaunas"] },
+  { code: "NO", name: "Norway", flag: "🇳🇴", cities: ["Oslo", "Bergen"] },
+  { code: "DK", name: "Denmark", flag: "🇩🇰", cities: ["Copenhagen", "Aarhus"] },
+  { code: "IS", name: "Iceland", flag: "🇮🇸", cities: ["Reykjavik", "Akureyri"] },
+  { code: "BE", name: "Belgium", flag: "🇧🇪", cities: ["Brussels", "Antwerp", "Ghent"] },
+  { code: "LU", name: "Luxembourg", flag: "🇱🇺", cities: ["Luxembourg City", "Esch-sur-Alzette"] },
+  { code: "HU", name: "Hungary", flag: "🇭🇺", cities: ["Budapest", "Debrecen"] },
+  { code: "SK", name: "Slovakia", flag: "🇸🇰", cities: ["Bratislava", "Kosice"] },
+  { code: "RO", name: "Romania", flag: "🇷🇴", cities: ["Bucharest", "Cluj-Napoca", "Timisoara"] },
+  { code: "BG", name: "Bulgaria", flag: "🇧🇬", cities: ["Sofia", "Plovdiv", "Varna"] },
+  { code: "GR", name: "Greece", flag: "🇬🇷", cities: ["Athens", "Thessaloniki"] },
+  { code: "HR", name: "Croatia", flag: "🇭🇷", cities: ["Zagreb", "Split", "Dubrovnik"] },
+  { code: "BA", name: "Bosnia & Herzegovina", flag: "🇧🇦", cities: ["Sarajevo", "Banja Luka"] },
+  { code: "ME", name: "Montenegro", flag: "🇲🇪", cities: ["Podgorica", "Budva"] },
+  { code: "AL", name: "Albania", flag: "🇦🇱", cities: ["Tirana", "Durres"] },
 ];
 
 export const CATEGORIES = [
