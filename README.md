@@ -36,6 +36,9 @@ cp .env.example .env.local   # optional, see below
 npm run dev                  # http://localhost:3000
 ```
 
+`npm run check-env` prints which integrations your `.env.local` enables, masking the values, so
+you can confirm a token was picked up without pasting it anywhere.
+
 ## How it works
 
 | Layer | File | Notes |
