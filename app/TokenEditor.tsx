@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { tokenPattern } from "@/lib/tokens";
 
-const WAVE_MS = 340;
-const WAVE_STEP_MS = 38;
+const WAVE_MS = 520;
+const WAVE_STEP_MS = 70;
 
 type Props = {
   value: string;
@@ -13,6 +13,21 @@ type Props = {
   singleLine?: boolean;
   placeholder?: string;
 };
+
+type Part = { text: string; start: number; token: boolean };
+
+function split(value: string): Part[] {
+  const parts: Part[] = [];
+  let last = 0;
+  for (const match of value.matchAll(tokenPattern())) {
+    const index = match.index ?? 0;
+    if (index > last) parts.push({ text: value.slice(last, index), start: last, token: false });
+    parts.push({ text: match[0], start: index, token: true });
+    last = index + match[0].length;
+  }
+  parts.push({ text: value.slice(last), start: last, token: false });
+  return parts;
+}
 
 /**
  * A textarea with the substituted words highlighted. The text is mirrored into
@@ -27,11 +42,11 @@ export default function TokenEditor({
 }: Props) {
   const inputRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
   const mirrorRef = useRef<HTMLDivElement>(null);
-  // Letters are split into boxes only while the wave runs; once it finishes the
-  // word goes back to plain text so the mirror matches the input exactly.
-  const [waving, setWaving] = useState<string[]>([]);
-  const known = useRef(new Set<string>());
-  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  // The word the caret just completed, identified by where it sits in the text
+  // rather than by its order, so typing a word before an existing one animates
+  // the word that was actually typed.
+  const [wave, setWave] = useState<{ start: number; text: string } | null>(null);
+  const waveTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const syncScroll = () => {
     if (mirrorRef.current && inputRef.current) {
@@ -41,58 +56,47 @@ export default function TokenEditor({
   };
 
   useEffect(syncScroll, [value]);
+  useEffect(() => () => clearTimeout(waveTimer.current), []);
 
-  useEffect(
-    () => () => {
-      timers.current.forEach((timer) => clearTimeout(timer));
-    },
-    [],
-  );
+  const handleChange = (next: string, caret: number) => {
+    const before = new Map(
+      split(value)
+        .filter((part) => part.token)
+        .map((part) => [part.start, part.text] as const),
+    );
+    // A word is "just typed" when it ends at the caret and was not a token here
+    // a moment ago — which also covers finishing a word by adding its last letter.
+    const finished = split(next).find(
+      (part) =>
+        part.token &&
+        part.start + part.text.length === caret &&
+        before.get(part.start) !== part.text,
+    );
 
+    onChange(next);
 
-  // Keys stay stable per token occurrence, so a mark is not re-mounted (and its
-  // entry animation not replayed) when text around it changes.
-  const parts: Array<{ text: string; key: string; token: boolean }> = [];
-  const seen = new Map<string, number>();
-  let last = 0;
-  for (const match of value.matchAll(tokenPattern())) {
-    const index = match.index ?? 0;
-    if (index > last) {
-      parts.push({ text: value.slice(last, index), key: `t${last}`, token: false });
+    if (finished) {
+      clearTimeout(waveTimer.current);
+      setWave({ start: finished.start, text: finished.text });
+      waveTimer.current = setTimeout(
+        () => setWave(null),
+        WAVE_MS + WAVE_STEP_MS * finished.text.length,
+      );
     }
-    const ordinal = (seen.get(match[0]) ?? 0) + 1;
-    seen.set(match[0], ordinal);
-    parts.push({ text: match[0], key: `${match[0]}#${ordinal}`, token: true });
-    last = index + match[0].length;
-  }
-  parts.push({ text: value.slice(last), key: "tail", token: false });
+  };
 
-  // Start the wave for words that have just become tokens, and forget the ones
-  // that were edited away so retyping them animates again.
-  const present = new Set(parts.filter((part) => part.token).map((part) => part.key));
-  for (const key of present) {
-    if (known.current.has(key)) continue;
-    known.current.add(key);
-    setWaving((prev) => (prev.includes(key) ? prev : [...prev, key]));
-    const timer = setTimeout(() => {
-      setWaving((prev) => prev.filter((k) => k !== key));
-      timers.current.delete(key);
-    }, WAVE_MS + WAVE_STEP_MS * 12);
-    timers.current.set(key, timer);
-  }
-  for (const key of known.current) {
-    if (!present.has(key)) known.current.delete(key);
-  }
-
+  const parts = split(value);
   const shared: CSSProperties = singleLine ? {} : { minHeight: `${rows * 1.6}em` };
 
   return (
     <div className={`token-editor${singleLine ? " token-editor-single" : ""}`} style={shared}>
       <div className="token-mirror" ref={mirrorRef} aria-hidden>
-        {parts.map((part) =>
-          part.token ? (
-            <mark className="token" key={part.key}>
-              {waving.includes(part.key)
+        {parts.map((part) => {
+          if (!part.token) return <span key={part.start}>{part.text}</span>;
+          const waving = wave?.start === part.start && wave.text === part.text;
+          return (
+            <mark className="token" key={part.start}>
+              {waving
                 ? [...part.text].map((letter, i) => (
                     <span
                       className="token-letter"
@@ -104,10 +108,8 @@ export default function TokenEditor({
                   ))
                 : part.text}
             </mark>
-          ) : (
-            <span key={part.key}>{part.text}</span>
-          ),
-        )}
+          );
+        })}
         {/* Keeps the last line visible while scrolling. */}
         {singleLine ? null : "\n"}
       </div>
@@ -119,7 +121,7 @@ export default function TokenEditor({
           value={value}
           placeholder={placeholder}
           onScroll={syncScroll}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => handleChange(e.target.value, e.target.selectionStart ?? 0)}
         />
       ) : (
         <textarea
@@ -129,7 +131,7 @@ export default function TokenEditor({
           value={value}
           placeholder={placeholder}
           onScroll={syncScroll}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => handleChange(e.target.value, e.target.selectionStart ?? 0)}
         />
       )}
     </div>
