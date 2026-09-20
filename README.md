@@ -28,6 +28,17 @@ whoever connected the mailbox. Sessions are HMAC-signed cookies (HttpOnly, 30 da
 `AUTH_SECRET` to pin the signing key, otherwise one is generated into `.data/secret` on first run.
 Every API route rejects an unauthenticated request with 401.
 
+## Admin
+
+`ADMIN_EMAIL` (default `loomeracompany@gmail.com`) names the one account that sees the **Admin**
+page. It is created on first run from `ADMIN_PASSWORD`, which lives only in your `.env.local` —
+without it no admin exists. The panel lists every account with what each has connected (mail,
+IMAP, Telegram), shows the server's own integrations, and deletes accounts along with their
+stored credentials. Its API rejects non-admins with 403.
+
+To change the admin password: edit `ADMIN_PASSWORD`, remove that account's entry from
+`.data/users.json` and restart — it is recreated on the next request.
+
 ## Run
 
 ```bash
@@ -48,6 +59,8 @@ you can confirm a token was picked up without pasting it anywhere.
 | Outreach | `lib/outreach.ts` | SMTP sending + drafts for Instagram and other networks |
 | Inbox | `lib/inbox.ts`, `app/api/inbox` | IMAP, Telegram and Instagram replies |
 | Accounts | `lib/auth.ts`, `lib/session.ts`, `app/api/auth` | Sign up, sign in, session cookies |
+| Admin | `app/api/admin`, Admin page | Account list, server integrations, deletion |
+| Setup guide | `app/GuideModal.tsx` | Step-by-step connection instructions in Settings |
 | Account settings | `lib/settings.ts`, `app/api/settings` | Per-user sender account, handles, language |
 | Translations | `lib/i18n.ts` | EN/RU strings |
 | API | `app/api/search`, `app/api/outreach` | JSON endpoints used by the UI |

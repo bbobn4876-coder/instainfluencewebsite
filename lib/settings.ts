@@ -88,6 +88,15 @@ export async function writeSettings(userId: string, next: AppSettings): Promise<
   await fs.writeFile(settingsFile(userId), JSON.stringify(next, null, 2), { mode: 0o600 });
 }
 
+/** Removes an account's stored credentials along with the account itself. */
+export async function deleteSettings(userId: string): Promise<void> {
+  try {
+    await fs.unlink(settingsFile(userId));
+  } catch {
+    /* nothing was ever saved for this account */
+  }
+}
+
 /** The password never leaves the server; the client only learns whether one is stored. */
 export function toPublicSettings(settings: AppSettings) {
   const { pass, ...email } = settings.email;

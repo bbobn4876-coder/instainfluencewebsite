@@ -2,8 +2,13 @@ import { promises as fs } from "fs";
 import crypto from "crypto";
 import path from "path";
 
-export type User = { id: string; email: string; createdAt: string };
-type StoredUser = User & { salt: string; hash: string };
+export type User = { id: string; email: string; createdAt: string; isAdmin: boolean };
+
+/** The one account that may open the admin panel. */
+export const ADMIN_EMAIL = normalizeEmail(
+  process.env.ADMIN_EMAIL ?? "loomeracompany@gmail.com",
+);
+type StoredUser = Omit<User, "isAdmin"> & { salt: string; hash: string };
 
 const DATA_DIR = process.env.DATA_DIR ?? path.join(process.cwd(), ".data");
 const USERS_FILE = path.join(DATA_DIR, "users.json");
@@ -71,7 +76,36 @@ export async function createUser(email: string, password: string): Promise<User 
 }
 
 function publicUser(user: StoredUser): User {
-  return { id: user.id, email: user.email, createdAt: user.createdAt };
+  return {
+    id: user.id,
+    email: user.email,
+    createdAt: user.createdAt,
+    isAdmin: user.email === ADMIN_EMAIL,
+  };
+}
+
+/**
+ * Creates the admin account on first use from ADMIN_PASSWORD. The password is
+ * never stored in the repository — without the variable no admin exists.
+ */
+export async function ensureAdmin(): Promise<void> {
+  const password = process.env.ADMIN_PASSWORD;
+  if (!password || password.length < 8) return;
+  const users = await readUsers();
+  if (users.some((u) => u.email === ADMIN_EMAIL)) return;
+  await createUser(ADMIN_EMAIL, password);
+}
+
+export async function listUsers(): Promise<User[]> {
+  return (await readUsers()).map(publicUser);
+}
+
+export async function deleteUser(userId: string): Promise<boolean> {
+  const users = await readUsers();
+  const user = users.find((u) => u.id === userId);
+  if (!user || user.email === ADMIN_EMAIL) return false;
+  await writeUsers(users.filter((u) => u.id !== userId));
+  return true;
 }
 
 export async function verifyUser(email: string, password: string): Promise<User | null> {

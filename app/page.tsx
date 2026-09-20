@@ -8,13 +8,14 @@ import Select from "./Select";
 import ProfileModal from "./ProfileModal";
 import AuthModal, { type AuthMode } from "./AuthModal";
 import Landing from "./Landing";
+import GuideModal from "./GuideModal";
 import TokenEditor from "./TokenEditor";
 import { TOKENS } from "@/lib/tokens";
 import type { PublicSettings } from "@/lib/settings";
 import type { InboxChannel, InboxMessage, ChannelStatus } from "@/lib/inbox";
 import type { Influencer, OutreachResult } from "@/lib/types";
 
-type View = "discover" | "compose" | "results" | "inbox" | "settings";
+type View = "discover" | "compose" | "results" | "inbox" | "settings" | "admin";
 
 const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
   {
@@ -56,6 +57,16 @@ const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
     ),
   },
   {
+    id: "admin",
+    hotkey: "9",
+    icon: (
+      <svg viewBox="0 0 20 20" aria-hidden>
+        <path d="M10 2.5l6 2.5v5c0 3.4-2.4 6.4-6 7.5-3.6-1.1-6-4.1-6-7.5v-5z" />
+        <path d="M7.5 10l1.8 1.8L13 8" />
+      </svg>
+    ),
+  },
+  {
     id: "settings",
     hotkey: "5",
     icon: (
@@ -66,6 +77,31 @@ const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
     ),
   },
 ];
+
+type AdminAccount = {
+  id: string;
+  email: string;
+  createdAt: string;
+  isAdmin: boolean;
+  language: string;
+  smtp: boolean;
+  smtpFrom: string;
+  imap: boolean;
+  telegram: boolean;
+  instagram: string;
+};
+
+type AdminData = {
+  accounts: AdminAccount[];
+  integrations: {
+    apify: boolean;
+    apifyActor: string;
+    instagramGraph: boolean;
+    authSecret: boolean;
+    dataDir: string;
+    node: string;
+  };
+};
 
 const EMPTY_SETTINGS: PublicSettings = {
   language: "en",
@@ -122,7 +158,10 @@ export default function Page() {
   const [imapPassword, setImapPassword] = useState("");
 
   const [details, setDetails] = useState<Influencer | null>(null);
-  const [user, setUser] = useState<{ id: string; email: string } | null>(null);
+  const [user, setUser] = useState<{ id: string; email: string; isAdmin?: boolean } | null>(null);
+  const [guide, setGuide] = useState(false);
+  const [admin, setAdmin] = useState<AdminData | null>(null);
+  const [adminLoading, setAdminLoading] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode | null>(null);
 
   const [collapsed, setCollapsed] = useState(false);
@@ -349,6 +388,45 @@ export default function Page() {
     if (user && view === "inbox" && !inboxLoaded && !inboxLoading) void loadInbox();
   }, [user, view, inboxLoaded, inboxLoading, loadInbox]);
 
+  const loadAdmin = useCallback(async () => {
+    setAdminLoading(true);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/admin");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not load the panel.");
+      setAdmin(data);
+    } catch (error) {
+      setNotice((error as Error).message);
+    } finally {
+      setAdminLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (view === "admin" && user?.isAdmin && !admin && !adminLoading) void loadAdmin();
+  }, [view, user, admin, adminLoading, loadAdmin]);
+
+  const removeAccount = useCallback(
+    async (account: AdminAccount) => {
+      if (!window.confirm(t.admin.removeConfirm(account.email))) return;
+      const res = await fetch("/api/admin", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId: account.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setNotice(data.error ?? "Could not delete the account.");
+        return;
+      }
+      setNotice(t.admin.removed);
+      setAdmin(null);
+      void loadAdmin();
+    },
+    [t, loadAdmin],
+  );
+
   const saveSettings = useCallback(async () => {
     if (!user) {
       setAuthMode("signin");
@@ -483,6 +561,7 @@ export default function Page() {
     results: results.length || undefined,
     inbox: inbox.filter((m) => m.unread).length || undefined,
     settings: undefined,
+    admin: admin?.accounts.length || undefined,
   };
 
   const currentProvider = providerById(providerId);
@@ -654,7 +733,7 @@ export default function Page() {
         </button>
 
         <nav className="nav">
-          {VIEWS.map((item) => (
+          {VIEWS.filter((item) => item.id !== "admin" || user?.isAdmin).map((item) => (
             <button
               key={item.id}
               className="nav-item"
@@ -969,6 +1048,111 @@ export default function Page() {
             </>
           ) : null}
 
+          {view === "admin" && user?.isAdmin ? (
+            <>
+              <h1 className="view-title">{t.admin.title}</h1>
+              <p className="view-sub">{t.admin.sub}</p>
+
+              {admin ? (
+                <div className="compose">
+                  <section className="panel">
+                    <h2 className="panel-title">{t.admin.serverTitle}</h2>
+                    <div className="admin-grid">
+                      <div className="admin-stat">
+                        <span className="admin-stat-label">{t.admin.apify}</span>
+                        <span className="status" data-status={admin.integrations.apify ? "sent" : "drafted"}>
+                          {admin.integrations.apify ? t.admin.on : t.admin.off}
+                        </span>
+                      </div>
+                      <div className="admin-stat">
+                        <span className="admin-stat-label">{t.admin.apifyActor}</span>
+                        <span className="admin-stat-value">{admin.integrations.apifyActor}</span>
+                      </div>
+                      <div className="admin-stat">
+                        <span className="admin-stat-label">{t.admin.instagramGraph}</span>
+                        <span
+                          className="status"
+                          data-status={admin.integrations.instagramGraph ? "sent" : "drafted"}
+                        >
+                          {admin.integrations.instagramGraph ? t.admin.on : t.admin.off}
+                        </span>
+                      </div>
+                      <div className="admin-stat">
+                        <span className="admin-stat-label">{t.admin.authSecret}</span>
+                        <span
+                          className="status"
+                          data-status={admin.integrations.authSecret ? "sent" : "drafted"}
+                        >
+                          {admin.integrations.authSecret ? t.admin.on : t.admin.off}
+                        </span>
+                      </div>
+                      <div className="admin-stat">
+                        <span className="admin-stat-label">{t.admin.dataDir}</span>
+                        <span className="admin-stat-value">{admin.integrations.dataDir}</span>
+                      </div>
+                      <div className="admin-stat">
+                        <span className="admin-stat-label">{t.admin.node}</span>
+                        <span className="admin-stat-value">{admin.integrations.node}</span>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="panel">
+                    <h2 className="panel-title">{t.admin.accountsTitle(admin.accounts.length)}</h2>
+                    {admin.accounts.length === 0 ? (
+                      <p className="hint">{t.admin.empty}</p>
+                    ) : (
+                      <div className="admin-users">
+                        {admin.accounts.map((account) => (
+                          <article className="admin-user" key={account.id}>
+                            <div>
+                              <div className="admin-user-email">
+                                {account.email}
+                                {account.isAdmin ? (
+                                  <span className="admin-badge"> {t.admin.adminBadge}</span>
+                                ) : null}
+                              </div>
+                              <div className="admin-user-meta">
+                                {t.admin.created}:{" "}
+                                {new Date(account.createdAt).toLocaleDateString(
+                                  language === "ru" ? "ru-RU" : "en-GB",
+                                )}
+                                {account.smtpFrom ? ` · ${account.smtpFrom}` : ""}
+                                {account.instagram ? ` · ${account.instagram}` : ""}
+                              </div>
+                            </div>
+
+                            <div className="chips">
+                              <span className={`chip ${account.smtp ? "chip-on" : "chip-off"}`}>
+                                {t.admin.mail}
+                              </span>
+                              <span className={`chip ${account.imap ? "chip-on" : "chip-off"}`}>
+                                {t.admin.imap}
+                              </span>
+                              <span className={`chip ${account.telegram ? "chip-on" : "chip-off"}`}>
+                                {t.admin.telegram}
+                              </span>
+                              {account.isAdmin ? null : (
+                                <button
+                                  className="btn btn-danger"
+                                  onClick={() => removeAccount(account)}
+                                >
+                                  {t.admin.remove}
+                                </button>
+                              )}
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                </div>
+              ) : (
+                <div className="empty">{adminLoading ? "…" : t.admin.refresh}</div>
+              )}
+            </>
+          ) : null}
+
           {view === "settings" ? (
             <>
               <h1 className="view-title">{t.settings.title}</h1>
@@ -1274,6 +1458,9 @@ export default function Page() {
                 </span>
               </div>
               <div className="dock-actions">
+                <button className="btn btn-ghost" onClick={() => setGuide(true)}>
+                  {t.settings.help}
+                </button>
                 <button className="btn btn-ghost" onClick={testEmail} disabled={testing}>
                   {testing ? t.settings.testing : t.settings.test}
                 </button>
@@ -1297,6 +1484,28 @@ export default function Page() {
             </>
           ) : null}
 
+          {view === "admin" ? (
+            <>
+              <div className="dock-fields" style={{ gridTemplateColumns: "1fr" }}>
+                <span className="dock-status">
+                  {t.admin.accountsTitle(admin?.accounts.length ?? 0)}
+                </span>
+              </div>
+              <div className="dock-actions">
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setAdmin(null);
+                    void loadAdmin();
+                  }}
+                  disabled={adminLoading}
+                >
+                  {t.admin.refresh}
+                </button>
+              </div>
+            </>
+          ) : null}
+
           {view === "results" ? (
             <div className="dock-fields" style={{ gridTemplateColumns: "1fr" }}>
               <span className="dock-status">{t.results.title}</span>
@@ -1311,7 +1520,7 @@ export default function Page() {
 
         {foldableDock ? (
           <div className="dock-mini" data-open={dockCompact} aria-hidden={!dockCompact}>
-            {view === "settings" ? (
+          {view === "settings" ? (
               <>
                 <button
                   className="mini-button"
@@ -1394,6 +1603,17 @@ export default function Page() {
             setView("discover");
           }}
           labels={{ ...t.auth, close: t.discover.close }}
+        />
+      ) : null}
+
+      {guide ? (
+        <GuideModal
+          title={t.guide.title}
+          intro={t.guide.intro}
+          steps={t.guide.steps}
+          note={t.guide.note}
+          closeLabel={t.guide.close}
+          onClose={() => setGuide(false)}
         />
       ) : null}
 

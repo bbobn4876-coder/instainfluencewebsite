@@ -1,0 +1,56 @@
+import { NextResponse } from "next/server";
+import { deleteUser, listUsers } from "@/lib/auth";
+import { deleteSettings, readSettings } from "@/lib/settings";
+import { requireAdmin } from "@/lib/session";
+
+export const dynamic = "force-dynamic";
+
+/** Everything the panel shows: accounts, what each has connected, server integrations. */
+export async function GET() {
+  const { user, response } = await requireAdmin();
+  if (!user) return response;
+
+  const users = await listUsers();
+  const accounts = await Promise.all(
+    users.map(async (account) => {
+      const settings = await readSettings(account.id);
+      return {
+        ...account,
+        language: settings.language,
+        smtp: Boolean(settings.email.host && settings.email.user && settings.email.pass),
+        smtpFrom: settings.email.from || settings.email.user,
+        imap: Boolean(settings.imap.host && settings.imap.pass),
+        telegram: Boolean(settings.telegramBotToken),
+        instagram: settings.accounts.instagram,
+      };
+    }),
+  );
+
+  return NextResponse.json({
+    accounts,
+    integrations: {
+      apify: Boolean(process.env.APIFY_TOKEN),
+      apifyActor: process.env.APIFY_ACTOR_ID ?? "apify~instagram-scraper",
+      instagramGraph: Boolean(process.env.IG_ACCESS_TOKEN && process.env.IG_BUSINESS_ACCOUNT_ID),
+      authSecret: Boolean(process.env.AUTH_SECRET),
+      dataDir: process.env.DATA_DIR ?? ".data",
+      node: process.version,
+    },
+  });
+}
+
+export async function DELETE(request: Request) {
+  const { user, response } = await requireAdmin();
+  if (!user) return response;
+
+  const { userId } = (await request.json().catch(() => ({}))) as { userId?: string };
+  if (!userId) return NextResponse.json({ error: "No account given." }, { status: 400 });
+  if (userId === user.id) {
+    return NextResponse.json({ error: "You cannot delete your own account." }, { status: 400 });
+  }
+
+  const removed = await deleteUser(userId);
+  if (!removed) return NextResponse.json({ error: "Account not found." }, { status: 404 });
+  await deleteSettings(userId);
+  return NextResponse.json({ ok: true });
+}

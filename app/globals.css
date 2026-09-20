@@ -2027,6 +2027,99 @@ textarea {
   justify-content: space-between;
 }
 
+/* ---------- guide ---------- */
+
+.guide-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+
+.guide-list li::marker {
+  color: rgba(196, 44, 90, 0.9);
+}
+
+/* ---------- admin ---------- */
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.admin-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.admin-stat-label {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.admin-stat-value {
+  font-size: 14px;
+  word-break: break-word;
+}
+
+.admin-users {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-user {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.admin-user-email {
+  font-weight: 500;
+  min-width: 200px;
+}
+
+.admin-user-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.admin-user .chips {
+  margin-left: auto;
+}
+
+.admin-badge {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: linear-gradient(135deg, var(--burgundy-soft), var(--burgundy));
+  color: #fff;
+}
+
+.chip-on {
+  border-color: rgba(90, 190, 130, 0.4);
+  color: #b9e8c9;
+}
+
+.chip-off {
+  opacity: 0.5;
+}
+
 /* ---------- legal ---------- */
 
 .legal-modal {
