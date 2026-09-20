@@ -317,7 +317,7 @@ export default function Page() {
       limit: 30,
     };
 
-    const ask = async (extra: Record<string, string> = {}) => {
+    const ask = async (extra: Record<string, unknown> = {}) => {
       const res = await fetch("/api/search", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -347,6 +347,7 @@ export default function Page() {
           runId: String(data.runId),
           datasetId: String(data.datasetId),
           stage: String(data.stage ?? "discover"),
+          geo: data.geo,
         });
       }
 
@@ -360,9 +361,14 @@ export default function Page() {
       setOnlySelected(false);
       // Say how wide the net was, so a small result set is explainable.
       const scanned = data.scanned as number | undefined;
+      const confirmed = data.confirmed as number | undefined;
       setNotice(
         (data.notice as string) ??
-          (scanned && found.length < 5 ? t.discover.scanned(scanned, found.length) : null),
+          (scanned && found.length < 5
+            ? t.discover.scanned(scanned, found.length)
+            : scanned && confirmed !== undefined
+              ? t.discover.geoConfirmed(confirmed, found.length)
+              : null),
       );
       setView("discover");
     } catch (error) {

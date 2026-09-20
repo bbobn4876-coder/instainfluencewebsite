@@ -128,7 +128,14 @@ usable offline. Configure either provider in `.env.local` to get real profiles:
   those profiles are read for bios, follower counts, contacts and post metrics. Instagram's own
   user search only ever returns a handful of very large accounts, which is why a range like
   3k–10k used to come back almost empty. `APIFY_CANDIDATE_POOL` (default 240) sets how wide the
-  first stage casts its net. A scraper run takes a minute or more, far past the ~10s limit
+  first stage casts its net.
+
+  With a geo chosen, candidates are judged by the places their posts tag (`lib/geo.ts` maps a
+  location name to a country through its name, cities and common spellings): a post in the
+  requested country confirms a creator, a post elsewhere drops them before their profile is even
+  fetched, and a creator who tags no location is kept but ranked after the confirmed ones. The
+  page reports how many of the results were confirmed this way. Hashtags stay the discovery
+  mechanism, since Instagram has no country filter of its own. A scraper run takes a minute or more, far past the ~10s limit
   of a serverless function, so `/api/search` only starts the run and hands back a run id; the
   client polls the same endpoint until it settles. If the run fails or Apify is unreachable, the
   page falls back to sample data with the reason shown instead of an empty screen.

@@ -1,4 +1,5 @@
 import { ALL, countryByCode } from "./countries";
+import { countryOfLocation, verdictFor } from "./geo";
 import { extractEmails, extractLinks, extractPhones } from "./contacts";
 import { mockSearch } from "./mock";
 import type { Influencer, SearchQuery } from "./types";
@@ -59,7 +60,12 @@ function postMetrics(posts: ApifyPost[] | undefined, followers: number) {
   return { medianLikes, medianComments, medianReelViews, engagementRate };
 }
 
-function toInfluencer(item: ApifyItem, query: SearchQuery, source: Influencer["source"]): Influencer | null {
+function toInfluencer(
+  item: ApifyItem,
+  query: SearchQuery,
+  source: Influencer["source"],
+  geo?: GeoHint,
+): Influencer | null {
   if (!item.username) return null;
   const bio = item.biography ?? "";
   const followers = item.followersCount ?? 0;
@@ -74,7 +80,9 @@ function toInfluencer(item: ApifyItem, query: SearchQuery, source: Influencer["s
     medianLikes: metrics.medianLikes,
     medianComments: metrics.medianComments,
     medianReelViews: metrics.medianReelViews,
-    country: query.countries.includes(ALL) ? "" : (query.countries[0] ?? ""),
+    country: geo?.code ?? (query.countries.includes(ALL) ? "" : (query.countries[0] ?? "")),
+    // Only set when a tagged post proves where they post from.
+    city: geo?.place ? geo.place.split(",")[0].trim() : undefined,
     category:
       item.businessCategoryName ??
       (query.categories?.includes(ALL) ? "lifestyle" : (query.categories?.[0] ?? "lifestyle")),
@@ -88,7 +96,14 @@ function toInfluencer(item: ApifyItem, query: SearchQuery, source: Influencer["s
 }
 
 export type ApifyStage = "discover" | "details";
-export type ApifyRun = { runId: string; datasetId: string; stage: ApifyStage };
+/** Where a candidate was seen posting from, carried between the two stages. */
+export type GeoHint = { code: string; place: string };
+export type ApifyRun = {
+  runId: string;
+  datasetId: string;
+  stage: ApifyStage;
+  geo?: Record<string, GeoHint>;
+};
 
 /** How many hashtag posts to scan for candidates before fetching their profiles. */
 const CANDIDATE_POOL = Number(process.env.APIFY_CANDIDATE_POOL ?? 240);
@@ -176,7 +191,13 @@ async function startDetailsRun(usernames: string[]): Promise<ApifyRun> {
 
 export type RunStatus =
   | { status: "running"; run: ApifyRun; scanned?: number }
-  | { status: "done"; influencers: Influencer[]; scanned: number; matched: number }
+  | {
+      status: "done";
+      influencers: Influencer[];
+      scanned: number;
+      matched: number;
+      confirmed?: number;
+    }
   | { status: "failed"; detail: string };
 
 async function datasetItems<T>(datasetId: string, limit: number): Promise<T[]> {
@@ -200,26 +221,77 @@ export async function pollApifyRun(run: ApifyRun, query: SearchQuery): Promise<R
   }
 
   if (run.stage === "discover") {
-    const posts = await datasetItems<{ ownerUsername?: string }>(run.datasetId, CANDIDATE_POOL);
-    const usernames = [...new Set(posts.map((p) => p.ownerUsername).filter(Boolean))] as string[];
-    if (usernames.length === 0) {
+    const posts = await datasetItems<{ ownerUsername?: string; locationName?: string }>(
+      run.datasetId,
+      CANDIDATE_POOL,
+    );
+    const wanted = query.countries.includes(ALL) ? [] : query.countries;
+
+    // A creator is judged by the places they tag: a post in the requested
+    // country confirms them, a post elsewhere rules them out, no location at
+    // all leaves them as a maybe.
+    const seen = new Map<string, { hits: Map<string, string>; other: number }>();
+    for (const post of posts) {
+      if (!post.ownerUsername) continue;
+      const entry = seen.get(post.ownerUsername) ?? { hits: new Map(), other: 0 };
+      const verdict = wanted.length === 0 ? "unknown" : verdictFor(post.locationName, wanted);
+      if (verdict === "match") {
+        const code = countryOfLocation(post.locationName)!;
+        entry.hits.set(code, post.locationName ?? "");
+      } else if (verdict === "other") {
+        entry.other += 1;
+      }
+      seen.set(post.ownerUsername, entry);
+    }
+
+    const confirmed: string[] = [];
+    const maybe: string[] = [];
+    const geo: Record<string, GeoHint> = {};
+    for (const [username, entry] of seen) {
+      if (entry.hits.size > 0) {
+        const [code, place] = [...entry.hits.entries()][0];
+        geo[username] = { code, place };
+        confirmed.push(username);
+      } else if (entry.other === 0) {
+        maybe.push(username);
+      }
+    }
+
+    // Confirmed accounts first; the maybes fill the rest of the budget.
+    const budget = Math.min(CANDIDATE_POOL, 150);
+    const capped = [...confirmed, ...maybe].slice(0, budget);
+    if (capped.length === 0) {
       return { status: "failed", detail: "No accounts found under those hashtags." };
     }
-    // Apify bills per profile, so cap how many are looked up in detail.
-    const capped = usernames.slice(0, Math.min(CANDIDATE_POOL, 150));
-    return { status: "running", run: await startDetailsRun(capped), scanned: capped.length };
+    return {
+      status: "running",
+      run: { ...(await startDetailsRun(capped)), geo },
+      scanned: capped.length,
+    };
   }
 
   const items = await datasetItems<ApifyItem>(run.datasetId, 200);
+  const hints = run.geo ?? {};
   const all = items
-    .map((item) => toInfluencer(item, query, "apify"))
+    .map((item) => toInfluencer(item, query, "apify", hints[item.username ?? ""]))
     .filter((i): i is Influencer => i !== null);
-  const matched = shapeApifyItems(items, query);
+  const matched = all
+    .filter((i) => i.followers >= (query.minFollowers ?? 0))
+    .filter((i) => !query.maxFollowers || i.followers <= query.maxFollowers)
+    .sort((a, b) => b.followers - a.followers);
+
+  // With a geo chosen, a confirmed location outranks a guess.
+  const wanted = query.countries.includes(ALL) ? [] : query.countries;
+  const ranked = wanted.length
+    ? [...matched].sort((a, b) => Number(Boolean(b.city)) - Number(Boolean(a.city)))
+    : matched;
+
   return {
     status: "done",
-    influencers: matched.slice(0, query.limit ?? 24),
+    influencers: ranked.slice(0, query.limit ?? 24),
     scanned: all.length,
     matched: matched.length,
+    confirmed: ranked.filter((i) => i.city).length,
   };
 }
 

@@ -10,7 +10,12 @@ export async function POST(request: Request) {
   const { user, response } = await requireUser();
   if (!user) return response;
 
-  let payload: Partial<SearchQuery> & { runId?: string; datasetId?: string; stage?: string };
+  let payload: Partial<SearchQuery> & {
+    runId?: string;
+    datasetId?: string;
+    stage?: string;
+    geo?: unknown;
+  };
   try {
     payload = await request.json();
   } catch {
@@ -50,6 +55,7 @@ export async function POST(request: Request) {
             runId: payload.runId,
             datasetId: payload.datasetId,
             stage: payload.stage === "details" ? ("details" as const) : ("discover" as const),
+            geo: (payload.geo ?? {}) as Record<string, { code: string; place: string }>,
           }
         : null;
 
@@ -74,6 +80,7 @@ export async function POST(request: Request) {
         influencers: state.influencers,
         scanned: state.scanned,
         matched: state.matched,
+        confirmed: state.confirmed,
       });
     } catch (error) {
       // A broken token or a network problem should not leave the page empty.
