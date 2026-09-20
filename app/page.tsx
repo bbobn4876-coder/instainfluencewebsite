@@ -11,7 +11,7 @@ import Landing from "./Landing";
 import GuideModal from "./GuideModal";
 import TokenEditor from "./TokenEditor";
 import { TOKENS } from "@/lib/tokens";
-import { csvFileName, toCsv } from "@/lib/exportTable";
+import { fileName } from "@/lib/exportTable";
 import type { PublicSettings } from "@/lib/settings";
 import type { InboxChannel, InboxMessage, ChannelStatus } from "@/lib/inbox";
 import type { Influencer, OutreachResult } from "@/lib/types";
@@ -338,16 +338,32 @@ export default function Page() {
     try {
       let data = await ask();
 
+      // Profiles arrive in rounds, so results are accumulated as they land.
+      const byId = new Map<string, Influencer>();
+      const collect = (payload: Record<string, unknown>) => {
+        for (const found of (payload.influencers as Influencer[]) ?? []) {
+          if (!byId.has(found.id)) byId.set(found.id, found);
+        }
+      };
+
+      setSelectedIds([]);
+      setOnlySelected(false);
+
       // Apify keeps scraping after the request returns, so poll until it settles.
-      const deadline = Date.now() + 4 * 60 * 1000;
+      const deadline = Date.now() + 10 * 60 * 1000;
       while (data.status === "running" && Date.now() < deadline) {
-        setNotice(t.discover.stillRunning);
+        collect(data);
+        setInfluencers([...byId.values()]);
+        setNotice(
+          byId.size > 0 ? t.discover.foundSoFar(byId.size) : t.discover.stillRunning,
+        );
         await new Promise((resolve) => setTimeout(resolve, 3000));
         data = await ask({
           runId: String(data.runId),
           datasetId: String(data.datasetId),
           stage: String(data.stage ?? "discover"),
           geo: data.geo,
+          queue: data.queue,
         });
       }
 
@@ -355,10 +371,9 @@ export default function Page() {
         throw new Error(t.discover.tookTooLong);
       }
 
-      const found = (data.influencers as Influencer[]) ?? [];
+      collect(data);
+      const found = [...byId.values()].sort((a, b) => b.followers - a.followers);
       setInfluencers(found);
-      setSelectedIds([]);
-      setOnlySelected(false);
       // Say how wide the net was, so a small result set is explainable.
       const scanned = data.scanned as number | undefined;
       const confirmed = data.confirmed as number | undefined;
@@ -625,16 +640,31 @@ export default function Page() {
 
   const allSelected = influencers.length > 0 && selectedIds.length === influencers.length;
 
-  const downloadTable = () => {
-    if (selected.length === 0) return;
-    // A BOM keeps Excel from mangling non-ASCII names.
-    const blob = new Blob(["\uFEFF", toCsv(selected)], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = csvFileName(selected.length);
-    link.click();
-    URL.revokeObjectURL(url);
+  const [downloading, setDownloading] = useState(false);
+
+  const downloadTable = async () => {
+    if (selected.length === 0 || downloading) return;
+    setDownloading(true);
+    try {
+      // The workbook is built server-side so it can carry styling that a CSV cannot.
+      const res = await fetch("/api/export", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ influencers: selected }),
+      });
+      if (!res.ok) throw new Error("export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName(selected.length);
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setNotice(t.discover.downloadFailed);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const toggleSelectAll = () =>
@@ -1628,6 +1658,20 @@ export default function Page() {
                 >
                   <svg viewBox="0 0 20 20" aria-hidden>
                     <path d="M3 5.5h14M6 10h8M8.5 14.5h3" />
+                  </svg>
+                </button>
+                <button
+                  className="mini-button mini-fade"
+                  data-visible={selectedIds.length > 0}
+                  aria-hidden={selectedIds.length === 0}
+                  tabIndex={selectedIds.length > 0 ? 0 : -1}
+                  title={t.discover.download}
+                  aria-label={t.discover.download}
+                  onClick={downloadTable}
+                >
+                  <svg viewBox="0 0 20 20" aria-hidden>
+                    <path d="M10 3.5v9M6.5 9.5l3.5 3.5 3.5-3.5" />
+                    <path d="M4 16h12" />
                   </svg>
                 </button>
                 <button

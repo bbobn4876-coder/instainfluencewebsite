@@ -15,6 +15,7 @@ export async function POST(request: Request) {
     datasetId?: string;
     stage?: string;
     geo?: unknown;
+    queue?: unknown;
   };
   try {
     payload = await request.json();
@@ -56,6 +57,7 @@ export async function POST(request: Request) {
             datasetId: payload.datasetId,
             stage: payload.stage === "details" ? ("details" as const) : ("discover" as const),
             geo: (payload.geo ?? {}) as Record<string, { code: string; place: string }>,
+            queue: Array.isArray(payload.queue) ? payload.queue.map(String) : [],
           }
         : null;
 
@@ -67,8 +69,14 @@ export async function POST(request: Request) {
 
       const state = await pollApifyRun(run, query);
       if (state.status === "running") {
-        // The run may have moved from collecting candidates to reading profiles.
-        return NextResponse.json({ provider: "apify", status: "running", ...state.run });
+        // The run may have moved from collecting candidates to reading profiles,
+        // and each profile round hands back the creators it already found.
+        return NextResponse.json({
+          provider: "apify",
+          status: "running",
+          ...state.run,
+          influencers: state.influencers ?? [],
+        });
       }
       if (state.status === "failed") {
         const fallback = await searchInfluencers(query);

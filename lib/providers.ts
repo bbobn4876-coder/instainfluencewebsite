@@ -103,10 +103,18 @@ export type ApifyRun = {
   datasetId: string;
   stage: ApifyStage;
   geo?: Record<string, GeoHint>;
+  /** Candidates waiting for a later profile round. */
+  queue?: string[];
 };
 
 /** How many hashtag posts to scan for candidates before fetching their profiles. */
-const CANDIDATE_POOL = Number(process.env.APIFY_CANDIDATE_POOL ?? 240);
+const CANDIDATE_POOL = Number(process.env.APIFY_CANDIDATE_POOL ?? 2400);
+
+/** How many profiles to read in total across all rounds. */
+const PROFILE_BUDGET = Number(process.env.APIFY_PROFILE_BUDGET ?? 900);
+
+/** Profiles per round: small enough that a round finishes in a minute or so. */
+const PROFILE_BATCH = Number(process.env.APIFY_PROFILE_BATCH ?? 150);
 
 /** Keeps every call well inside a serverless function's time limit. */
 async function apifyFetch(url: string, init?: RequestInit): Promise<Response> {
@@ -136,6 +144,11 @@ async function startRun(input: Record<string, unknown>, stage: ApifyStage): Prom
   return { runId: data.data.id, datasetId: data.data.defaultDatasetId, stage };
 }
 
+const NICHE_SUFFIXES = ["blogger", "creator", "influencer", "daily", "life"];
+
+/** Hashtag pages per run; more tags means a wider, more varied candidate pool. */
+const TAG_LIMIT = Number(process.env.APIFY_TAG_LIMIT ?? 30);
+
 /** Hashtags to scan: the niches themselves, the keyword, and city+niche combinations. */
 function discoveryTags(query: SearchQuery): string[] {
   const niches = query.categories?.includes(ALL)
@@ -143,18 +156,24 @@ function discoveryTags(query: SearchQuery): string[] {
     : (query.categories ?? ["lifestyle"]);
   const cities = query.countries.includes(ALL)
     ? []
-    : query.countries.flatMap((code) => countryByCode(code)?.cities.slice(0, 2) ?? []);
+    : query.countries.flatMap((code) => countryByCode(code)?.cities ?? []);
 
   const clean = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
   const tags = new Set<string>();
 
   if (query.keyword?.trim()) tags.add(clean(query.keyword));
   for (const niche of niches) {
-    tags.add(clean(niche));
+    const base = clean(niche);
+    tags.add(base);
+    // Suffixes pull in the smaller creator accounts rather than the big pages.
+    for (const suffix of NICHE_SUFFIXES) tags.add(`${base}${suffix}`);
     // City tags are where smaller, local creators actually show up.
-    for (const city of cities) tags.add(`${clean(city)}${clean(niche)}`);
+    for (const city of cities) {
+      tags.add(`${clean(city)}${base}`);
+      tags.add(`${clean(city)}creator`);
+    }
   }
-  return [...tags].filter(Boolean).slice(0, 8);
+  return [...tags].filter(Boolean).slice(0, TAG_LIMIT);
 }
 
 /**
@@ -169,7 +188,7 @@ export async function startApifyRun(query: SearchQuery): Promise<ApifyRun> {
     {
       directUrls: tags.map((tag) => `https://www.instagram.com/explore/tags/${tag}/`),
       resultsType: "posts",
-      resultsLimit: Math.max(CANDIDATE_POOL, (query.limit ?? 24) * 4),
+      resultsLimit: CANDIDATE_POOL,
     },
     "discover",
   );
@@ -188,7 +207,7 @@ async function startDetailsRun(usernames: string[]): Promise<ApifyRun> {
 }
 
 export type RunStatus =
-  | { status: "running"; run: ApifyRun; scanned?: number }
+  | { status: "running"; run: ApifyRun; scanned?: number; influencers?: Influencer[] }
   | {
       status: "done";
       influencers: Influencer[];
@@ -256,19 +275,21 @@ export async function pollApifyRun(run: ApifyRun, query: SearchQuery): Promise<R
     }
 
     // Confirmed accounts first; the maybes fill the rest of the budget.
-    const budget = Math.min(CANDIDATE_POOL, 150);
-    const capped = [...confirmed, ...maybe].slice(0, budget);
+    const capped = [...confirmed, ...maybe].slice(0, PROFILE_BUDGET);
     if (capped.length === 0) {
       return { status: "failed", detail: "No accounts found under those hashtags." };
     }
+    // Profiles are read in rounds so no single Apify run runs for ages.
+    const batch = capped.slice(0, PROFILE_BATCH);
+    const queue = capped.slice(PROFILE_BATCH);
     return {
       status: "running",
-      run: { ...(await startDetailsRun(capped)), geo },
+      run: { ...(await startDetailsRun(batch)), geo, queue },
       scanned: capped.length,
     };
   }
 
-  const items = await datasetItems<ApifyItem>(run.datasetId, 200);
+  const items = await datasetItems<ApifyItem>(run.datasetId, PROFILE_BATCH * 2);
   const hints = run.geo ?? {};
   const all = items
     .map((item) => toInfluencer(item, query, "apify", hints[item.username ?? ""]))
@@ -284,9 +305,21 @@ export async function pollApifyRun(run: ApifyRun, query: SearchQuery): Promise<R
     ? [...matched].sort((a, b) => Number(Boolean(b.city)) - Number(Boolean(a.city)))
     : matched;
 
+  // More candidates waiting? Hand back this round's results and start the next.
+  const queue = run.queue ?? [];
+  if (queue.length > 0) {
+    const batch = queue.slice(0, PROFILE_BATCH);
+    return {
+      status: "running",
+      run: { ...(await startDetailsRun(batch)), geo: hints, queue: queue.slice(PROFILE_BATCH) },
+      influencers: ranked,
+      scanned: all.length,
+    };
+  }
+
   return {
     status: "done",
-    influencers: ranked.slice(0, query.limit ?? 24),
+    influencers: ranked,
     scanned: all.length,
     matched: matched.length,
     confirmed: ranked.filter((i) => i.city).length,

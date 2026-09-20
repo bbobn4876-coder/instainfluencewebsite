@@ -11,6 +11,7 @@
     "check-env": "node scripts/check-env.mjs"
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
     "imapflow": "^2.0.5",
     "next": "14.2.15",
     "nodemailer": "6.9.15",

@@ -2649,3 +2649,29 @@ textarea {
     grid-column: span 1 !important;
   }
 }
+
+/* The download pill fades out of the blur the same way the docked one does. */
+.mini-button.mini-fade {
+  transition:
+    opacity 0.32s ease,
+    filter 0.32s ease,
+    transform 0.32s ease,
+    width 0.32s ease,
+    margin 0.32s ease;
+}
+
+.mini-button.mini-fade[data-visible="false"] {
+  opacity: 0;
+  width: 0;
+  height: 46px;
+  margin: 0;
+  padding: 0;
+  border-width: 0;
+  pointer-events: none;
+  filter: blur(10px);
+  transform: scale(0.7);
+}
+
+.mini-button.mini-fade[data-visible="false"] svg {
+  opacity: 0;
+}
