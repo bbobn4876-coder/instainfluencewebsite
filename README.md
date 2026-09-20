@@ -18,13 +18,9 @@ signing out returns to it.
 
 The app is account-based: nothing works until you sign up.
 
-A new account has to confirm its address before anything unlocks: signing up emails a link that
-is valid for 24 hours, and **Send it again** reissues it. **Forgot your password?** on the sign-in
-screen emails a one-hour link that signs you in on the new password. Both letters go through the
-platform mailbox (`SYSTEM_SMTP_*`); when that is not configured the link is written to the server
-log instead, so a local instance still works. Tokens are stored as SHA-256 hashes, one live token
-per purpose, and are consumed on use. Asking for a reset answers the same way whether or not the
-address has an account.
+Signing up is email and password, and the account works immediately — there is no confirmation
+letter and no password reset, so the app needs no mailbox of its own. A forgotten password can
+only be fixed on the server, by deleting that entry from `.data/users.json`.
 
 Accounts live in `.data/users.json` with scrypt-hashed passwords, and each account keeps its own
 mail credentials, social handles and language in `.data/users/<id>.json`, so replies come back to
@@ -54,7 +50,6 @@ npm run dev                  # http://localhost:3000
 | API | `app/api/search`, `app/api/outreach` | JSON endpoints used by the UI |
 | Landing | `app/Landing.tsx` | Public page for signed-out visitors |
 | App UI | `app/page.tsx`, `app/globals.css` | Discover · Compose · Results · Inbox · Settings |
-| Mail links | `lib/authTokens.ts`, `lib/systemMail.ts` | Confirmation and reset tokens, platform mailbox |
 | Profile popup | `app/ProfileModal.tsx` | Avatar, full bio, contacts and links for one account |
 | Dropdowns | `app/Select.tsx` | Searchable single/multi select used for geo and niche |
 

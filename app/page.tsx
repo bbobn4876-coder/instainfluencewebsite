@@ -122,11 +122,8 @@ export default function Page() {
   const [imapPassword, setImapPassword] = useState("");
 
   const [details, setDetails] = useState<Influencer | null>(null);
-  const [user, setUser] = useState<{ id: string; email: string; emailVerified: boolean } | null>(
-    null,
-  );
+  const [user, setUser] = useState<{ id: string; email: string } | null>(null);
   const [authMode, setAuthMode] = useState<AuthMode | null>(null);
-  const [resetToken, setResetToken] = useState<string | undefined>();
 
   const [collapsed, setCollapsed] = useState(false);
   // The bottom bar folds into round icons while scrolling down through a page.
@@ -149,56 +146,14 @@ export default function Page() {
     } catch {
       /* storage can be blocked; the default stays expanded */
     }
-    const params = new URLSearchParams(window.location.search);
-    const verifyToken = params.get("verify");
-    const reset = params.get("reset");
-    const clearUrl = () => window.history.replaceState({}, "", window.location.pathname);
-
-    if (reset) {
-      setResetToken(reset);
-      setAuthMode("reset");
-      clearUrl();
-    }
-
-    if (verifyToken) {
-      clearUrl();
-      fetch("/api/auth", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "verify", token: verifyToken }),
-      })
-        .then(async (r) => ({ ok: r.ok, data: await r.json() }))
-        .then(({ ok, data }) => {
-          if (ok) {
-            setUser(data.user);
-            setNotice(dict(data.user?.language ?? "en").auth.verifyDone);
-            setView("discover");
-          } else {
-            setNotice(data.error ?? "This link is invalid or has expired.");
-          }
-        })
-        .catch(() => undefined);
-      return;
-    }
-
     fetch("/api/auth")
       .then((r) => r.json())
       .then((data) => setUser(data.user ?? null))
       .catch(() => undefined);
   }, []);
 
-  const resendVerification = useCallback(async () => {
-    const res = await fetch("/api/auth", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "resend" }),
-    });
-    const data = await res.json();
-    setNotice(data.sent ? t.auth.verifySent : (data.link ?? t.auth.linkFallback));
-  }, [t]);
-
   useEffect(() => {
-    if (!user?.emailVerified) {
+    if (!user) {
       setSettings(EMPTY_SETTINGS);
       return;
     }
@@ -310,7 +265,6 @@ export default function Page() {
       setAuthMode("signin");
       return;
     }
-    if (!user.emailVerified) return;
     setLoading(true);
     setNotice(null);
     try {
@@ -349,7 +303,6 @@ export default function Page() {
       setAuthMode("signin");
       return;
     }
-    if (!user.emailVerified) return;
     if (selected.length === 0) return;
     setSending(true);
     setNotice(null);
@@ -375,7 +328,6 @@ export default function Page() {
       setAuthMode("signin");
       return;
     }
-    if (!user.emailVerified) return;
     setInboxLoading(true);
     setNotice(null);
     try {
@@ -402,7 +354,6 @@ export default function Page() {
       setAuthMode("signin");
       return;
     }
-    if (!user.emailVerified) return;
     setSavingSettings(true);
     setNotice(null);
     try {
@@ -459,7 +410,6 @@ export default function Page() {
       setAuthMode("signin");
       return;
     }
-    if (!user.emailVerified) return;
     setTesting(true);
     setNotice(null);
     try {
@@ -667,14 +617,12 @@ export default function Page() {
         {authMode ? (
           <AuthModal
             mode={authMode}
-            token={resetToken}
             onMode={setAuthMode}
             onClose={() => setAuthMode(null)}
             onDone={(signedIn) => {
               setUser(signedIn);
               setAuthMode(null);
-              setResetToken(undefined);
-              setNotice(signedIn.emailVerified ? null : t.auth.verifyBody(signedIn.email));
+              setNotice(null);
               setView("discover");
             }}
             labels={{ ...t.auth, close: t.discover.close }}
@@ -772,19 +720,7 @@ export default function Page() {
         <div className="content" key={view} onScroll={onContentScroll}>
           {notice ? <div className="notice">{notice}</div> : null}
 
-          {user && !user.emailVerified ? (
-            <div className="locked">
-              <h2 className="locked-title">{t.auth.verifyTitle}</h2>
-              <p className="locked-body">{t.auth.verifyBody(user.email)}</p>
-              <div className="locked-actions">
-                <button className="btn" onClick={resendVerification}>
-                  {t.auth.verifyResend}
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          {user?.emailVerified && view === "discover" ? (
+          {view === "discover" ? (
             <>
               <h1 className="view-title">{t.discover.title}</h1>
               <p className="view-sub">{t.discover.sub}</p>
@@ -831,7 +767,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {user?.emailVerified && view === "compose" ? (
+          {view === "compose" ? (
             <>
               <h1 className="view-title">{t.compose.title}</h1>
               <p className="view-sub">
@@ -884,7 +820,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {user?.emailVerified && view === "results" ? (
+          {view === "results" ? (
             <>
               <h1 className="view-title">{t.results.title}</h1>
               <p className="view-sub">
@@ -961,7 +897,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {user?.emailVerified && view === "inbox" ? (
+          {view === "inbox" ? (
             <>
               <h1 className="view-title">{t.inbox.title}</h1>
               <p className="view-sub">{t.inbox.sub}</p>
@@ -1033,7 +969,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {user?.emailVerified && view === "settings" ? (
+          {view === "settings" ? (
             <>
               <h1 className="view-title">{t.settings.title}</h1>
               <p className="view-sub">{t.settings.sub}</p>
@@ -1375,7 +1311,7 @@ export default function Page() {
 
         {foldableDock ? (
           <div className="dock-mini" data-open={dockCompact} aria-hidden={!dockCompact}>
-            {user?.emailVerified && view === "settings" ? (
+            {view === "settings" ? (
               <>
                 <button
                   className="mini-button"
@@ -1449,14 +1385,12 @@ export default function Page() {
       {authMode ? (
         <AuthModal
           mode={authMode}
-          token={resetToken}
           onMode={setAuthMode}
           onClose={() => setAuthMode(null)}
           onDone={(signedIn) => {
             setUser(signedIn);
             setAuthMode(null);
-            setResetToken(undefined);
-            setNotice(signedIn.emailVerified ? null : t.auth.verifyBody(signedIn.email));
+            setNotice(null);
             setView("discover");
           }}
           labels={{ ...t.auth, close: t.discover.close }}

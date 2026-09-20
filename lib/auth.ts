@@ -2,7 +2,7 @@ import { promises as fs } from "fs";
 import crypto from "crypto";
 import path from "path";
 
-export type User = { id: string; email: string; createdAt: string; emailVerified: boolean };
+export type User = { id: string; email: string; createdAt: string };
 type StoredUser = User & { salt: string; hash: string };
 
 const DATA_DIR = process.env.DATA_DIR ?? path.join(process.cwd(), ".data");
@@ -63,7 +63,6 @@ export async function createUser(email: string, password: string): Promise<User 
     id: crypto.randomUUID(),
     email: normalized,
     createdAt: new Date().toISOString(),
-    emailVerified: false,
     salt,
     hash: hashPassword(password, salt),
   };
@@ -72,39 +71,7 @@ export async function createUser(email: string, password: string): Promise<User 
 }
 
 function publicUser(user: StoredUser): User {
-  return {
-    id: user.id,
-    email: user.email,
-    createdAt: user.createdAt,
-    emailVerified: Boolean(user.emailVerified),
-  };
-}
-
-export async function userByEmail(email: string): Promise<User | null> {
-  const users = await readUsers();
-  const user = users.find((u) => u.email === normalizeEmail(email));
-  return user ? publicUser(user) : null;
-}
-
-export async function markVerified(userId: string): Promise<User | null> {
-  const users = await readUsers();
-  const user = users.find((u) => u.id === userId);
-  if (!user) return null;
-  user.emailVerified = true;
-  await writeUsers(users);
-  return publicUser(user);
-}
-
-export async function setPassword(userId: string, password: string): Promise<boolean> {
-  const users = await readUsers();
-  const user = users.find((u) => u.id === userId);
-  if (!user) return false;
-  user.salt = crypto.randomBytes(16).toString("hex");
-  user.hash = hashPassword(password, user.salt);
-  // Resetting the password through the mailbox proves the address works.
-  user.emailVerified = true;
-  await writeUsers(users);
-  return true;
+  return { id: user.id, email: user.email, createdAt: user.createdAt };
 }
 
 export async function verifyUser(email: string, password: string): Promise<User | null> {
