@@ -26,7 +26,9 @@ npm run dev                  # http://localhost:3000
 | Account settings | `lib/settings.ts`, `app/api/settings` | Sender account, social handles, language |
 | Translations | `lib/i18n.ts` | EN/RU strings |
 | API | `app/api/search`, `app/api/outreach` | JSON endpoints used by the UI |
-| UI | `app/page.tsx`, `app/globals.css` | Discover · Selected · Compose · Results |
+| UI | `app/page.tsx`, `app/globals.css` | Discover · Selected · Compose · Results · Inbox · Settings |
+| Profile popup | `app/ProfileModal.tsx` | Avatar, full bio, contacts and links for one account |
+| Dropdowns | `app/Select.tsx` | Searchable select used for geo and niche |
 
 ### Keyboard
 

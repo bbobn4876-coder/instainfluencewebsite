@@ -5,6 +5,7 @@ import { CATEGORIES, COUNTRIES } from "@/lib/countries";
 import { dict, type Language } from "@/lib/i18n";
 import { MAIL_PROVIDERS, guessProvider, providerById } from "@/lib/mailProviders";
 import Select from "./Select";
+import ProfileModal from "./ProfileModal";
 import type { PublicSettings } from "@/lib/settings";
 import type { InboxChannel, InboxMessage, ChannelStatus } from "@/lib/inbox";
 import type { Influencer, OutreachResult } from "@/lib/types";
@@ -121,6 +122,8 @@ export default function Page() {
   const [telegramBot, setTelegramBot] = useState("");
   const [providerId, setProviderId] = useState("custom");
   const [imapPassword, setImapPassword] = useState("");
+
+  const [details, setDetails] = useState<Influencer | null>(null);
 
   const [collapsed, setCollapsed] = useState(false);
 
@@ -463,6 +466,7 @@ export default function Page() {
                       influencer={influencer}
                       selected={selectedIds.includes(influencer.id)}
                       onToggle={() => toggle(influencer.id)}
+                      onInfo={() => setDetails(influencer)}
                       labels={t.discover}
                     />
                   ))}
@@ -485,6 +489,7 @@ export default function Page() {
                       influencer={influencer}
                       selected
                       onToggle={() => toggle(influencer.id)}
+                      onInfo={() => setDetails(influencer)}
                       labels={t.discover}
                     />
                   ))}
@@ -989,6 +994,16 @@ export default function Page() {
           ) : null}
         </div>
       </main>
+
+      {details ? (
+        <ProfileModal
+          influencer={details}
+          selected={selectedIds.includes(details.id)}
+          onToggle={() => toggle(details.id)}
+          onClose={() => setDetails(null)}
+          labels={t.discover}
+        />
+      ) : null}
     </div>
   );
 }
@@ -997,12 +1012,14 @@ function InfluencerCard({
   influencer,
   selected,
   onToggle,
+  onInfo,
   labels,
 }: {
   influencer: Influencer;
   selected: boolean;
   onToggle: () => void;
-  labels: { followers: string; engagement: string; nicheLabel: string };
+  onInfo: () => void;
+  labels: { followers: string; engagement: string; nicheLabel: string; info: string };
 }) {
   return (
     <div
@@ -1027,7 +1044,24 @@ function InfluencerCard({
             {influencer.city ? ` · ${influencer.city}` : ""}
           </div>
         </div>
-        <span className="checkbox">✓</span>
+        <div className="card-actions">
+          <button
+            className="info-button"
+            title={labels.info}
+            aria-label={labels.info}
+            onClick={(event) => {
+              event.stopPropagation();
+              onInfo();
+            }}
+          >
+            <svg viewBox="0 0 20 20" aria-hidden>
+              <circle cx="10" cy="10" r="7.5" />
+              <path d="M10 9v4.5" />
+              <circle cx="10" cy="6.4" r="0.9" fill="currentColor" stroke="none" />
+            </svg>
+          </button>
+          <span className="checkbox">✓</span>
+        </div>
       </div>
 
       <div className="stats">
