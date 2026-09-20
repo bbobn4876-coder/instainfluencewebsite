@@ -306,25 +306,53 @@ export default function Page() {
     }
     setLoading(true);
     setNotice(null);
-    try {
+
+    const body = {
+      countries,
+      categories,
+      keyword,
+      minFollowers,
+      maxFollowers,
+      limit: 30,
+    };
+
+    const ask = async (extra: Record<string, string> = {}) => {
       const res = await fetch("/api/search", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          countries,
-          categories,
-          keyword,
-          minFollowers,
-          maxFollowers,
-          limit: 30,
-        }),
+        body: JSON.stringify({ ...body, ...extra }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Search failed.");
-      setInfluencers(data.influencers ?? []);
+      const text = await res.text();
+      let data: Record<string, unknown>;
+      try {
+        data = JSON.parse(text) as Record<string, unknown>;
+      } catch {
+        // A gateway timeout or crash answers with HTML, not JSON.
+        throw new Error(`The server answered ${res.status}. ${text.slice(0, 120)}`);
+      }
+      if (!res.ok) throw new Error((data.error as string) ?? `The search failed (${res.status}).`);
+      return data;
+    };
+
+    try {
+      let data = await ask();
+
+      // Apify keeps scraping after the request returns, so poll until it settles.
+      const deadline = Date.now() + 4 * 60 * 1000;
+      while (data.status === "running" && Date.now() < deadline) {
+        setNotice(t.discover.stillRunning);
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        data = await ask({ runId: String(data.runId), datasetId: String(data.datasetId) });
+      }
+
+      if (data.status === "running") {
+        throw new Error(t.discover.tookTooLong);
+      }
+
+      setInfluencers((data.influencers as Influencer[]) ?? []);
       setSelectedIds([]);
       setOnlySelected(false);
-      setNotice(data.notice ?? null);
+      setNotice((data.notice as string) ?? null);
       setView("discover");
     } catch (error) {
       setInfluencers([]);
@@ -332,7 +360,7 @@ export default function Page() {
     } finally {
       setLoading(false);
     }
-  }, [user, countries, categories, keyword, minFollowers, maxFollowers]);
+  }, [user, countries, categories, keyword, minFollowers, maxFollowers, t]);
 
   const toggle = (id: string) =>
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));

@@ -47,11 +47,24 @@ function toInfluencer(item: ApifyItem, query: SearchQuery, source: Influencer["s
   };
 }
 
+export type ApifyRun = { runId: string; datasetId: string };
+
+/** Keeps every call well inside a serverless function's time limit. */
+async function apifyFetch(url: string, init?: RequestInit): Promise<Response> {
+  const res = await fetch(url, { ...init, cache: "no-store", signal: AbortSignal.timeout(8_000) });
+  if (!res.ok) {
+    const detail = (await res.text()).slice(0, 200);
+    throw new Error(`Apify ${res.status}: ${detail}`);
+  }
+  return res;
+}
+
 /**
- * Apify Instagram scraper. Set APIFY_TOKEN (and optionally APIFY_ACTOR_ID) to use
- * real profile data; the actor is run synchronously and its dataset returned.
+ * Starts the Instagram scraper and returns straight away. A synchronous run
+ * takes a minute or more, which no serverless host will wait for, so the run is
+ * polled from the client through pollApifyRun instead.
  */
-async function apifySearch(query: SearchQuery): Promise<Influencer[]> {
+export async function startApifyRun(query: SearchQuery): Promise<ApifyRun> {
   const token = process.env.APIFY_TOKEN!;
   const actor = process.env.APIFY_ACTOR_ID ?? "apify~instagram-scraper";
   const limit = Math.min(query.limit ?? 24, 100);
@@ -60,8 +73,8 @@ async function apifySearch(query: SearchQuery): Promise<Influencer[]> {
   const nicheTerms = query.categories?.includes(ALL) ? [] : (query.categories ?? []);
   const terms = [query.keyword, ...nicheTerms, ...geoTerms].filter(Boolean).join(" ");
 
-  const res = await fetch(
-    `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${encodeURIComponent(token)}`,
+  const res = await apifyFetch(
+    `https://api.apify.com/v2/acts/${actor}/runs?token=${encodeURIComponent(token)}`,
     {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -73,12 +86,43 @@ async function apifySearch(query: SearchQuery): Promise<Influencer[]> {
         resultsLimit: limit,
         addParentData: false,
       }),
-      cache: "no-store",
     },
   );
 
-  if (!res.ok) throw new Error(`Apify request failed: ${res.status} ${await res.text()}`);
-  const items = (await res.json()) as ApifyItem[];
+  const data = (await res.json()) as { data?: { id?: string; defaultDatasetId?: string } };
+  if (!data.data?.id || !data.data.defaultDatasetId) {
+    throw new Error("Apify did not return a run id.");
+  }
+  return { runId: data.data.id, datasetId: data.data.defaultDatasetId };
+}
+
+export type RunStatus =
+  | { status: "running" }
+  | { status: "done"; influencers: Influencer[] }
+  | { status: "failed"; detail: string };
+
+/** One quick check of a started run; the client calls this until it settles. */
+export async function pollApifyRun(run: ApifyRun, query: SearchQuery): Promise<RunStatus> {
+  const token = encodeURIComponent(process.env.APIFY_TOKEN!);
+  const res = await apifyFetch(`https://api.apify.com/v2/actor-runs/${run.runId}?token=${token}`);
+  const data = (await res.json()) as { data?: { status?: string } };
+  const state = data.data?.status ?? "UNKNOWN";
+
+  if (state === "READY" || state === "RUNNING") return { status: "running" };
+  if (state !== "SUCCEEDED") {
+    return { status: "failed", detail: `The Apify run ${state.toLowerCase()}.` };
+  }
+
+  const items = (await (
+    await apifyFetch(
+      `https://api.apify.com/v2/datasets/${run.datasetId}/items?token=${token}&clean=true&limit=${Math.min(query.limit ?? 24, 100)}`,
+    )
+  ).json()) as ApifyItem[];
+
+  return { status: "done", influencers: shapeApifyItems(items, query) };
+}
+
+function shapeApifyItems(items: ApifyItem[], query: SearchQuery): Influencer[] {
   return items
     .map((item) => toInfluencer(item, query, "apify"))
     .filter((i): i is Influencer => i !== null)
@@ -136,9 +180,6 @@ export async function searchInfluencers(
 ): Promise<{ provider: ProviderName; influencers: Influencer[]; notice?: string }> {
   const provider = activeProvider();
   try {
-    if (provider === "apify") {
-      return { provider, influencers: await apifySearch(query) };
-    }
     if (provider === "instagram-graph") {
       const influencers = await graphSearch(query);
       return {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { searchInfluencers } from "@/lib/providers";
+import { activeProvider, pollApifyRun, searchInfluencers, startApifyRun } from "@/lib/providers";
 import { ALL, countryByCode } from "@/lib/countries";
 import { requireUser } from "@/lib/session";
 import type { SearchQuery } from "@/lib/types";
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   const { user, response } = await requireUser();
   if (!user) return response;
 
-  let payload: Partial<SearchQuery>;
+  let payload: Partial<SearchQuery> & { runId?: string; datasetId?: string };
   try {
     payload = await request.json();
   } catch {
@@ -41,6 +41,44 @@ export async function POST(request: Request) {
     limit: Number.isFinite(payload.limit) ? Number(payload.limit) : 24,
   };
 
+  // Apify runs for a minute or more, far past any serverless time limit, so the
+  // request only starts it and hands the client a run to poll.
+  if (activeProvider() === "apify") {
+    const run =
+      typeof payload.runId === "string" && typeof payload.datasetId === "string"
+        ? { runId: payload.runId, datasetId: payload.datasetId }
+        : null;
+
+    try {
+      if (!run) {
+        const started = await startApifyRun(query);
+        return NextResponse.json({ provider: "apify", status: "running", ...started });
+      }
+
+      const state = await pollApifyRun(run, query);
+      if (state.status === "running") {
+        return NextResponse.json({ provider: "apify", status: "running", ...run });
+      }
+      if (state.status === "failed") {
+        const fallback = await searchInfluencers(query);
+        return NextResponse.json({ ...fallback, status: "done", notice: state.detail });
+      }
+      return NextResponse.json({
+        provider: "apify",
+        status: "done",
+        influencers: state.influencers,
+      });
+    } catch (error) {
+      // A broken token or a network problem should not leave the page empty.
+      const fallback = await searchInfluencers(query);
+      return NextResponse.json({
+        ...fallback,
+        status: "done",
+        notice: `${(error as Error).message} — showing sample data.`,
+      });
+    }
+  }
+
   const result = await searchInfluencers(query);
-  return NextResponse.json(result);
+  return NextResponse.json({ ...result, status: "done" });
 }

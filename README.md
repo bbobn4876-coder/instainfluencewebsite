@@ -119,7 +119,10 @@ Without credentials the app runs on a deterministic generated dataset, so the wh
 usable offline. Configure either provider in `.env.local` to get real profiles:
 
 - **Apify** (`APIFY_TOKEN`) — keyword/geo search across profiles, returns bios, follower counts,
-  business email and external URL.
+  business email and external URL. A scraper run takes a minute or more, far past the ~10s limit
+  of a serverless function, so `/api/search` only starts the run and hands back a run id; the
+  client polls the same endpoint until it settles. If the run fails or Apify is unreachable, the
+  page falls back to sample data with the reason shown instead of an empty screen.
 - **Instagram Graph API** (`IG_ACCESS_TOKEN`, `IG_BUSINESS_ACCOUNT_ID`) — official, but its
   business-discovery endpoint only resolves one exact handle at a time, so use the keyword field
   as a handle lookup.
