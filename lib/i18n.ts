@@ -3,7 +3,6 @@ export type Language = "en" | "ru";
 export const STRINGS = {
   en: {
     nav: {
-      home: "Home",
       discover: "Discover",
       compose: "Compose",
       results: "Results",
@@ -111,6 +110,25 @@ Best,
       cta: "Get started",
       ctaSignIn: "Sign in",
       featuresTitle: "What it does",
+      navFeatures: "Features",
+      navHow: "How it works",
+      navFaq: "Questions",
+      howTitle: "How it works",
+      steps: [
+        { title: "Connect your mailbox", body: "Pick a provider, paste the address and an app password. Letters go out from you, replies come back to you." },
+        { title: "Search a geo", body: "Choose countries and niches — or all of them — set a follower range, run the search." },
+        { title: "Pick and write", body: "Select the profiles worth reaching, write once, and every recipient gets their own details filled in." },
+        { title: "Read the answers", body: "Replies from mail, Telegram and Instagram gather in one inbox with channel filters." },
+      ],
+      faqTitle: "Questions",
+      faq: [
+        { q: "Where does the data come from?", a: "Public profile fields, through the Apify actor or the Instagram Graph API with your own credentials. Without them the app runs on sample data so you can try the whole flow." },
+        { q: "Do letters go out from Loomera?", a: "No. They go through your own SMTP account, so the reply lands in your mailbox and your domain's reputation is the one at work." },
+        { q: "Can it send Instagram DMs automatically?", a: "No — there is no compliant API for cold messages. Loomera prepares the text per recipient and opens the conversation, you press send." },
+        { q: "Where is my data stored?", a: "On your own server, in files under .data. Passwords are hashed, mail credentials never leave the server." },
+      ],
+      footerNote: "Influencer discovery and outreach.",
+      footerLegal: "Check Instagram's terms and your local data protection rules before running outreach at scale.",
       features: [
         {
           title: "Search by geo and niche",
@@ -225,7 +243,6 @@ Best,
   },
   ru: {
     nav: {
-      home: "Главная",
       discover: "Поиск",
       compose: "Письмо",
       results: "Результаты",
@@ -333,6 +350,25 @@ Best,
       cta: "Начать",
       ctaSignIn: "Войти",
       featuresTitle: "Что умеет",
+      navFeatures: "Возможности",
+      navHow: "Как это работает",
+      navFaq: "Вопросы",
+      howTitle: "Как это работает",
+      steps: [
+        { title: "Подключите почту", body: "Выберите провайдера, впишите адрес и пароль приложения. Письма уходят от вас, ответы приходят вам." },
+        { title: "Задайте гео", body: "Отметьте страны и ниши — или все сразу, — задайте диапазон подписчиков и запустите поиск." },
+        { title: "Выберите и напишите", body: "Отметьте подходящие профили, напишите письмо один раз — у каждого получателя подставятся свои данные." },
+        { title: "Читайте ответы", body: "Ответы с почты, из Telegram и Instagram собираются во «Входящих» с фильтрами по каналам." },
+      ],
+      faqTitle: "Вопросы",
+      faq: [
+        { q: "Откуда берутся данные?", a: "Из публичных полей профиля — через актор Apify или Instagram Graph API с вашими ключами. Без них сайт работает на демо-данных, чтобы можно было пройти весь сценарий." },
+        { q: "Письма уходят от Loomera?", a: "Нет. Они идут через ваш SMTP-аккаунт: ответ приходит в ваш ящик, и работает репутация вашего домена." },
+        { q: "Можно автоматически слать директ в Instagram?", a: "Нет — легального API для холодных сообщений не существует. Loomera готовит текст под каждого и открывает диалог, отправляете вы." },
+        { q: "Где хранятся мои данные?", a: "На вашем сервере, в файлах внутри .data. Пароли хранятся хешем, доступы к почте не покидают сервер." },
+      ],
+      footerNote: "Поиск инфлюенсеров и рассылка.",
+      footerLegal: "Перед массовой рассылкой проверьте правила Instagram и местные требования к защите данных.",
       features: [
         {
           title: "Поиск по гео и нишам",

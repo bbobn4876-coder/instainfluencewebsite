@@ -7,24 +7,16 @@ import { MAIL_PROVIDERS, guessProvider, providerById } from "@/lib/mailProviders
 import Select from "./Select";
 import ProfileModal from "./ProfileModal";
 import AuthModal, { type AuthMode } from "./AuthModal";
+import Landing from "./Landing";
 import TokenEditor from "./TokenEditor";
 import { TOKENS } from "@/lib/tokens";
 import type { PublicSettings } from "@/lib/settings";
 import type { InboxChannel, InboxMessage, ChannelStatus } from "@/lib/inbox";
 import type { Influencer, OutreachResult } from "@/lib/types";
 
-type View = "home" | "discover" | "compose" | "results" | "inbox" | "settings";
+type View = "discover" | "compose" | "results" | "inbox" | "settings";
 
 const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
-  {
-    id: "home",
-    hotkey: "0",
-    icon: (
-      <svg viewBox="0 0 20 20" aria-hidden>
-        <path d="M3.5 9L10 3.5 16.5 9v7a1 1 0 01-1 1h-3v-5h-5v5h-3a1 1 0 01-1-1z" />
-      </svg>
-    ),
-  },
   {
     id: "discover",
     hotkey: "1",
@@ -90,7 +82,7 @@ function formatFollowers(n: number): string {
 }
 
 export default function Page() {
-  const [view, setView] = useState<View>("home");
+  const [view, setView] = useState<View>("discover");
   const [language, setLanguage] = useState<Language>("en");
   const t = dict(language);
 
@@ -135,7 +127,6 @@ export default function Page() {
   );
   const [authMode, setAuthMode] = useState<AuthMode | null>(null);
   const [resetToken, setResetToken] = useState<string | undefined>();
-  const [banner, setBanner] = useState(false);
 
   const [collapsed, setCollapsed] = useState(false);
   // The bottom bar folds into round icons while scrolling down through a page.
@@ -257,20 +248,6 @@ export default function Page() {
     }
   }, [motion]);
 
-  // Nudge signed-out visitors now and then rather than nagging constantly.
-  useEffect(() => {
-    if (user) {
-      setBanner(false);
-      return;
-    }
-    const show = setTimeout(() => setBanner(true), 4000);
-    const cycle = setInterval(() => setBanner((prev) => !prev), 30000);
-    return () => {
-      clearTimeout(show);
-      clearInterval(cycle);
-    };
-  }, [user]);
-
   const signOut = useCallback(async () => {
     await fetch("/api/auth", { method: "DELETE" });
     setUser(null);
@@ -333,10 +310,7 @@ export default function Page() {
       setAuthMode("signin");
       return;
     }
-    if (!user.emailVerified) {
-      setView("home");
-      return;
-    }
+    if (!user.emailVerified) return;
     setLoading(true);
     setNotice(null);
     try {
@@ -375,10 +349,7 @@ export default function Page() {
       setAuthMode("signin");
       return;
     }
-    if (!user.emailVerified) {
-      setView("home");
-      return;
-    }
+    if (!user.emailVerified) return;
     if (selected.length === 0) return;
     setSending(true);
     setNotice(null);
@@ -404,10 +375,7 @@ export default function Page() {
       setAuthMode("signin");
       return;
     }
-    if (!user.emailVerified) {
-      setView("home");
-      return;
-    }
+    if (!user.emailVerified) return;
     setInboxLoading(true);
     setNotice(null);
     try {
@@ -434,10 +402,7 @@ export default function Page() {
       setAuthMode("signin");
       return;
     }
-    if (!user.emailVerified) {
-      setView("home");
-      return;
-    }
+    if (!user.emailVerified) return;
     setSavingSettings(true);
     setNotice(null);
     try {
@@ -494,10 +459,7 @@ export default function Page() {
       setAuthMode("signin");
       return;
     }
-    if (!user.emailVerified) {
-      setView("home");
-      return;
-    }
+    if (!user.emailVerified) return;
     setTesting(true);
     setNotice(null);
     try {
@@ -566,7 +528,6 @@ export default function Page() {
     setSettings((prev) => ({ ...prev, accounts: { ...prev.accounts, [key]: value } }));
 
   const counts: Record<View, number | undefined> = {
-    home: undefined,
     discover: influencers.length || undefined,
     compose: undefined,
     results: results.length || undefined,
@@ -692,6 +653,37 @@ export default function Page() {
     </>
   );
 
+  // Signed-out visitors only ever see the landing page; the app shell, its
+  // sidebar and its pages exist for accounts.
+  if (!user) {
+    return (
+      <>
+        <Landing
+          language={language}
+          onLanguage={setLanguage}
+          onSignIn={() => setAuthMode("signin")}
+          onSignUp={() => setAuthMode("signup")}
+        />
+        {authMode ? (
+          <AuthModal
+            mode={authMode}
+            token={resetToken}
+            onMode={setAuthMode}
+            onClose={() => setAuthMode(null)}
+            onDone={(signedIn) => {
+              setUser(signedIn);
+              setAuthMode(null);
+              setResetToken(undefined);
+              setNotice(signedIn.emailVerified ? null : t.auth.verifyBody(signedIn.email));
+              setView("discover");
+            }}
+            labels={{ ...t.auth, close: t.discover.close }}
+          />
+        ) : null}
+      </>
+    );
+  }
+
   return (
     <div className="shell">
       <aside className="sidebar" data-collapsed={collapsed}>
@@ -777,78 +769,10 @@ export default function Page() {
       </aside>
 
       <main className="main">
-        <div className="auth-bar" data-open={!user && banner && view !== "home"} aria-hidden={!(!user && banner)}>
-          <span>{t.auth.banner}</span>
-          <button className="btn" onClick={() => setAuthMode("signin")}>
-            {t.auth.bannerAction}
-          </button>
-          <button className="btn btn-ghost" onClick={() => setBanner(false)}>
-            {t.auth.dismiss}
-          </button>
-        </div>
-
         <div className="content" key={view} onScroll={onContentScroll}>
           {notice ? <div className="notice">{notice}</div> : null}
 
-          {view === "home" ? (
-            <div className="home">
-              <div className="home-hero">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img className="home-mark" src="/iconinfluence.png" alt="" />
-                <h1 className="home-title">{t.home.title}</h1>
-                <p className="home-tagline">{t.home.tagline}</p>
-                {user ? null : (
-                  <div className="locked-actions">
-                    <button className="btn" onClick={() => setAuthMode("signup")}>
-                      {t.home.cta}
-                    </button>
-                    <button className="btn btn-ghost" onClick={() => setAuthMode("signin")}>
-                      {t.home.ctaSignIn}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {user && !user.emailVerified ? (
-                <div className="locked">
-                  <h2 className="locked-title">{t.auth.verifyTitle}</h2>
-                  <p className="locked-body">{t.auth.verifyBody(user.email)}</p>
-                  <div className="locked-actions">
-                    <button className="btn" onClick={resendVerification}>
-                      {t.auth.verifyResend}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-
-              <h2 className="home-section">{t.home.featuresTitle}</h2>
-              <div className="home-features">
-                {t.home.features.map((feature) => (
-                  <article className="home-feature" key={feature.title}>
-                    <h3 className="home-feature-title">{feature.title}</h3>
-                    <p className="home-feature-body">{feature.body}</p>
-                  </article>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          {!user && view !== "home" ? (
-            <div className="locked">
-              <h2 className="locked-title">{t.auth.lockedTitle}</h2>
-              <p className="locked-body">{t.auth.lockedBody}</p>
-              <div className="locked-actions">
-                <button className="btn" onClick={() => setAuthMode("signin")}>
-                  {t.auth.signIn}
-                </button>
-                <button className="btn btn-ghost" onClick={() => setAuthMode("signup")}>
-                  {t.auth.signUp}
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          {user && !user.emailVerified && view !== "home" ? (
+          {user && !user.emailVerified ? (
             <div className="locked">
               <h2 className="locked-title">{t.auth.verifyTitle}</h2>
               <p className="locked-body">{t.auth.verifyBody(user.email)}</p>
@@ -1533,7 +1457,7 @@ export default function Page() {
             setAuthMode(null);
             setResetToken(undefined);
             setNotice(signedIn.emailVerified ? null : t.auth.verifyBody(signedIn.email));
-            setView(signedIn.emailVerified ? "discover" : "home");
+            setView("discover");
           }}
           labels={{ ...t.auth, close: t.discover.close }}
         />

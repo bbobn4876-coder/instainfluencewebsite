@@ -7,10 +7,16 @@ want and run outreach from the same screen.
 Black UI with a blurred burgundy gradient, Inter/Helvetica, navigation on the left and every
 control docked at the bottom.
 
+## Two surfaces
+
+Signed-out visitors get the landing page (`app/Landing.tsx`): its own rounded sticky header with
+anchor links, hero, features, how-it-works, FAQ and a footer — none of the app shell. Signing in
+replaces it with the app (sidebar, pages, bottom bar) and the landing becomes unreachable;
+signing out returns to it.
+
 ## Accounts
 
-The app is account-based: nothing works until you sign up. The **Sign in / Sign up** button sits
-at the bottom of the sidebar, and a reminder bar appears at the top of the page while signed out.
+The app is account-based: nothing works until you sign up.
 
 A new account has to confirm its address before anything unlocks: signing up emails a link that
 is valid for 24 hours, and **Send it again** reissues it. **Forgot your password?** on the sign-in
@@ -46,7 +52,8 @@ npm run dev                  # http://localhost:3000
 | Account settings | `lib/settings.ts`, `app/api/settings` | Per-user sender account, handles, language |
 | Translations | `lib/i18n.ts` | EN/RU strings |
 | API | `app/api/search`, `app/api/outreach` | JSON endpoints used by the UI |
-| UI | `app/page.tsx`, `app/globals.css` | Home · Discover · Compose · Results · Inbox · Settings |
+| Landing | `app/Landing.tsx` | Public page for signed-out visitors |
+| App UI | `app/page.tsx`, `app/globals.css` | Discover · Compose · Results · Inbox · Settings |
 | Mail links | `lib/authTokens.ts`, `lib/systemMail.ts` | Confirmation and reset tokens, platform mailbox |
 | Profile popup | `app/ProfileModal.tsx` | Avatar, full bio, contacts and links for one account |
 | Dropdowns | `app/Select.tsx` | Searchable single/multi select used for geo and niche |
@@ -71,8 +78,8 @@ to one column, and result rows stack instead of squeezing four columns onto a ph
 
 | Key | Action |
 | --- | --- |
-| `0` … `5` | Switch between Home, Discover, Compose, Results, Inbox and Settings |
-| `Alt` + `0` … `5` | Same, and works while a field has focus |
+| `1` … `5` | Switch between Discover, Compose, Results, Inbox and Settings |
+| `Alt` + `1` … `5` | Same, and works while a field has focus |
 | `⌘/Ctrl` + `B`, `[` | Collapse the sidebar to icons (remembered between visits); hovering the logo shows the same toggle |
 
 Geo and niche both take several values at once, or **All**, which drops that constraint
