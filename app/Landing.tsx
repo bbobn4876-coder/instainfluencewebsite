@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { dict, type Language } from "@/lib/i18n";
 
 /**
@@ -20,6 +20,8 @@ export default function Landing({
 }) {
   const t = dict(language).home;
   const [scrolled, setScrolled] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [legal, setLegal] = useState<"terms" | "privacy" | "cookie" | null>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -106,11 +108,14 @@ export default function Landing({
         <section className="landing-section" id="faq">
           <h2 className="home-section">{t.faqTitle}</h2>
           <div className="landing-faq">
-            {t.faq.map((item) => (
-              <details className="landing-faq-item" key={item.q}>
-                <summary>{item.q}</summary>
-                <p className="home-feature-body">{item.a}</p>
-              </details>
+            {t.faq.map((item, index) => (
+              <FaqItem
+                key={item.q}
+                question={item.q}
+                answer={item.a}
+                open={openFaq === index}
+                onToggle={() => setOpenFaq(openFaq === index ? null : index)}
+              />
             ))}
           </div>
         </section>
@@ -132,13 +137,128 @@ export default function Landing({
             <span>{t.footerNote}</span>
           </div>
         </div>
-        <p className="landing-footer-legal">{t.footerLegal}</p>
         <nav className="landing-footer-links">
-          <a href="#features">{t.navFeatures}</a>
-          <a href="#how">{t.navHow}</a>
-          <a href="#faq">{t.navFaq}</a>
+          <button onClick={() => setLegal("terms")}>{t.legal.terms}</button>
+          <button onClick={() => setLegal("privacy")}>{t.legal.privacy}</button>
+          <button onClick={() => setLegal("cookie")}>{t.legal.cookie}</button>
         </nav>
       </footer>
+
+      {legal ? (
+        <LegalModal
+          title={t.legal[legal]}
+          updated={t.legal.updated}
+          closeLabel={t.legal.close}
+          sections={
+            legal === "terms"
+              ? t.legal.termsBody
+              : legal === "privacy"
+                ? t.legal.privacyBody
+                : t.legal.cookieBody
+          }
+          onClose={() => setLegal(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+
+/** Whole card toggles; the answer animates on its measured height. */
+function FaqItem({
+  question,
+  answer,
+  open,
+  onToggle,
+}: {
+  question: string;
+  answer: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const body = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState(0);
+
+  useEffect(() => {
+    const measure = () => setHeight(body.current?.scrollHeight ?? 0);
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [answer]);
+
+  return (
+    <button
+      type="button"
+      className="landing-faq-item"
+      aria-expanded={open}
+      data-open={open}
+      onClick={onToggle}
+    >
+      <span className="landing-faq-question">
+        {question}
+        <span className="landing-faq-sign" aria-hidden>
+          <svg viewBox="0 0 20 20">
+            <path d="M4 10h12M10 4v12" />
+          </svg>
+        </span>
+      </span>
+      <div className="landing-faq-answer" style={{ height: open ? height : 0 }}>
+        <div ref={body}>
+          <p className="home-feature-body">{answer}</p>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function LegalModal({
+  title,
+  updated,
+  closeLabel,
+  sections,
+  onClose,
+}: {
+  title: string;
+  updated: string;
+  closeLabel: string;
+  sections: readonly { readonly title: string; readonly body: string }[];
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="modal-backdrop" onClick={onClose} role="presentation">
+      <div
+        className="modal legal-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button className="modal-close" onClick={onClose} aria-label={closeLabel}>
+          <svg viewBox="0 0 20 20" aria-hidden>
+            <path d="M5 5l10 10M15 5L5 15" />
+          </svg>
+        </button>
+
+        <header className="legal-head">
+          <h2 className="modal-title">{title}</h2>
+          <span className="legal-updated">{updated}</span>
+        </header>
+
+        {sections.map((section) => (
+          <section className="legal-section" key={section.title}>
+            <h3 className="legal-section-title">{section.title}</h3>
+            <p className="legal-section-body">{section.body}</p>
+          </section>
+        ))}
+      </div>
     </div>
   );
 }

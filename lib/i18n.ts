@@ -128,7 +128,30 @@ Best,
         { q: "Where is my data stored?", a: "On your own server, in files under .data. Passwords are hashed, mail credentials never leave the server." },
       ],
       footerNote: "Influencer discovery and outreach.",
-      footerLegal: "Check Instagram's terms and your local data protection rules before running outreach at scale.",
+      legal: {
+        terms: "Terms",
+        privacy: "Privacy",
+        cookie: "Cookies",
+        close: "Close",
+        updated: "Last updated 20 September 2026",
+        termsBody: [
+          { title: "What Loomera is", body: "Loomera finds public Instagram profiles, reads the contacts their owners published in their bio, and sends outreach through the mailbox you connect. It runs on your own server and under your own accounts with the data providers." },
+          { title: "Your responsibility", body: "You decide who to contact and what to write. Follow Instagram's terms, the rules of the mail provider you connect, and the marketing law that applies where your recipients live — including consent, a working reply address and an unsubscribe path." },
+          { title: "Fair use", body: "Do not use Loomera to harass anyone, to send deceptive or fraudulent messages, or to collect data about people who are not public creators. Accounts doing so may be closed." },
+          { title: "No warranty", body: "Profile data comes from third-party providers and can be incomplete or out of date. Loomera is provided as is, without a guarantee of results or availability." },
+        ],
+        privacyBody: [
+          { title: "What we store", body: "Your email address and a hashed password, the mail credentials and social handles you enter in Settings, and your language and interface preferences. Nothing else about you is collected." },
+          { title: "Where it lives", body: "In files on the server you run Loomera on. Passwords are hashed with scrypt, mail credentials never leave the server and are never sent back to the browser." },
+          { title: "Profile data", body: "Influencer profiles are fetched on demand from the provider you configured and are not kept after the session unless you act on them. Only fields their owners made public are read." },
+          { title: "Your control", body: "Disconnect account in Settings deletes the stored mail credentials, handles and bot token. Removing the account file removes everything else." },
+        ],
+        cookieBody: [
+          { title: "Session cookie", body: "One cookie, loomera_session, keeps you signed in. It is HttpOnly, signed, expires after 30 days and is the only cookie the site sets." },
+          { title: "No tracking", body: "There are no analytics, advertising or third-party cookies, and no tracking pixels in the outreach we send on your behalf." },
+          { title: "Browser storage", body: "Your sidebar and animation preferences are kept in the browser's local storage on your own device. Clearing site data resets them." },
+        ],
+      },
       features: [
         {
           title: "Search by geo and niche",
@@ -368,7 +391,30 @@ Best,
         { q: "Где хранятся мои данные?", a: "На вашем сервере, в файлах внутри .data. Пароли хранятся хешем, доступы к почте не покидают сервер." },
       ],
       footerNote: "Поиск инфлюенсеров и рассылка.",
-      footerLegal: "Перед массовой рассылкой проверьте правила Instagram и местные требования к защите данных.",
+      legal: {
+        terms: "Условия",
+        privacy: "Конфиденциальность",
+        cookie: "Cookie",
+        close: "Закрыть",
+        updated: "Обновлено 20 сентября 2026",
+        termsBody: [
+          { title: "Что такое Loomera", body: "Loomera находит публичные профили Instagram, читает контакты, которые их владельцы указали в био, и отправляет письма через подключённый вами ящик. Сервис работает на вашем сервере и под вашими аккаунтами у поставщиков данных." },
+          { title: "Ваша ответственность", body: "Кому писать и что писать, решаете вы. Соблюдайте правила Instagram, условия почтового провайдера и законы о рассылках в стране получателей — включая согласие, рабочий адрес для ответа и возможность отписаться." },
+          { title: "Добросовестное использование", body: "Не используйте Loomera для преследования, обманных или мошеннических сообщений, а также для сбора данных о людях, которые не являются публичными авторами. Такие аккаунты могут быть закрыты." },
+          { title: "Без гарантий", body: "Данные профилей приходят от сторонних поставщиков и могут быть неполными или устаревшими. Сервис предоставляется как есть, без гарантии результата и доступности." },
+        ],
+        privacyBody: [
+          { title: "Что храним", body: "Ваш адрес почты и хеш пароля, доступы к почте и хэндлы соцсетей, введённые в настройках, а также язык и настройки интерфейса. Ничего другого о вас не собирается." },
+          { title: "Где это лежит", body: "В файлах на сервере, где вы запустили Loomera. Пароли хешируются алгоритмом scrypt, доступы к почте не покидают сервер и никогда не возвращаются в браузер." },
+          { title: "Данные профилей", body: "Профили инфлюенсеров загружаются по запросу от настроенного вами поставщика и не сохраняются после сессии, пока вы сами не начнёте с ними работать. Читаются только поля, которые владельцы сделали публичными." },
+          { title: "Ваш контроль", body: "Кнопка «Отключить аккаунт» в настройках удаляет сохранённые доступы к почте, хэндлы и токен бота. Удаление файла аккаунта убирает всё остальное." },
+        ],
+        cookieBody: [
+          { title: "Cookie сессии", body: "Одна cookie, loomera_session, держит вас в аккаунте. Она HttpOnly, подписана, живёт 30 дней и является единственной, которую ставит сайт." },
+          { title: "Без трекинга", body: "Нет аналитических, рекламных и сторонних cookie, а в письмах, которые уходят от вашего имени, нет трекинговых пикселей." },
+          { title: "Хранилище браузера", body: "Состояние меню и настройка анимаций хранятся в локальном хранилище вашего браузера. Очистка данных сайта сбрасывает их." },
+        ],
+      },
       features: [
         {
           title: "Поиск по гео и нишам",

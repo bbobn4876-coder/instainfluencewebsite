@@ -36,6 +36,20 @@ body:has(.landing) {
   overflow-y: auto;
 }
 
+html:has(.landing) {
+  scroll-behavior: smooth;
+}
+
+html[data-motion="off"]:has(.landing) {
+  scroll-behavior: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:has(.landing) {
+    scroll-behavior: auto;
+  }
+}
+
 .glow {
   position: fixed;
   border-radius: 50%;
@@ -1745,9 +1759,13 @@ textarea {
   gap: 8px;
 }
 
-.landing-actions .btn {
-  padding: 9px 16px;
+.landing-actions .btn,
+.landing-hero .btn,
+.landing-cta .btn {
+  min-width: 118px;
+  padding: 10px 18px;
   font-size: 13px;
+  text-align: center;
 }
 
 .landing-lang {
@@ -1771,25 +1789,42 @@ textarea {
   flex: 1;
   width: min(1100px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 72px 0 40px;
+  padding: 88px 0 56px;
   display: flex;
   flex-direction: column;
-  gap: 76px;
+  gap: 96px;
 }
 
 .landing-hero {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 16px;
-  padding: 20px 0 8px;
+  gap: 0;
+  padding: 24px 0 8px;
+}
+
+.landing-hero .home-mark {
+  margin-bottom: 26px;
+}
+
+.landing-hero .home-title {
+  margin-bottom: 14px;
+}
+
+.landing-hero .home-tagline {
+  margin-bottom: 30px;
 }
 
 .landing-section {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  scroll-margin-top: 96px;
+  gap: 0;
+  scroll-margin-top: 104px;
+}
+
+/* One rhythm everywhere: heading, then 22px, then the content. */
+.landing-section .home-section {
+  margin-bottom: 22px;
 }
 
 .landing-steps {
@@ -1805,10 +1840,16 @@ textarea {
 .landing-step {
   display: flex;
   gap: 14px;
-  padding: 18px;
+  padding: 20px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
+}
+
+.landing-step > div {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .landing-step-number {
@@ -1827,38 +1868,86 @@ textarea {
 .landing-faq {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .landing-faq-item {
-  padding: 16px 18px;
+  display: block;
+  width: 100%;
+  padding: 18px 20px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
-}
-
-.landing-faq-item summary {
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
   cursor: pointer;
+  transition: border-color 0.24s ease, background 0.24s ease;
+}
+
+.landing-faq-item:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: var(--surface-strong);
+}
+
+.landing-faq-item[data-open="true"] {
+  border-color: rgba(156, 35, 71, 0.45);
+  background: linear-gradient(180deg, rgba(109, 19, 48, 0.2), rgba(255, 255, 255, 0.03));
+}
+
+.landing-faq-question {
+  display: flex;
+  align-items: center;
+  gap: 16px;
   font-size: 14px;
-  list-style: none;
 }
 
-.landing-faq-item summary::-webkit-details-marker {
-  display: none;
-}
-
-.landing-faq-item summary::after {
-  content: "+";
-  float: right;
+.landing-faq-sign {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  margin-left: auto;
+  border-radius: 50%;
+  border: 1px solid var(--line);
   color: var(--muted);
+  transition: transform 0.36s cubic-bezier(0.32, 0.72, 0.24, 1), color 0.24s ease,
+    border-color 0.24s ease, background 0.24s ease;
 }
 
-.landing-faq-item[open] summary::after {
-  content: "−";
+.landing-faq-sign svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
 }
 
-.landing-faq-item[open] summary {
-  margin-bottom: 10px;
+/* The plus turns into a minus as the card opens. */
+.landing-faq-item[data-open="true"] .landing-faq-sign {
+  transform: rotate(135deg);
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--burgundy-soft), var(--burgundy));
+}
+
+.landing-faq-answer {
+  overflow: hidden;
+  transition: height 0.38s cubic-bezier(0.32, 0.72, 0.24, 1);
+}
+
+.landing-faq-answer > div {
+  padding-top: 14px;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.3s ease, transform 0.36s cubic-bezier(0.32, 0.72, 0.24, 1);
+}
+
+.landing-faq-item[data-open="true"] .landing-faq-answer > div {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .landing-cta {
@@ -1919,14 +2008,60 @@ textarea {
   gap: 14px;
 }
 
-.landing-footer-links a {
+.landing-footer-links button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
   font-size: 12px;
   color: var(--muted);
-  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.16s ease;
 }
 
-.landing-footer-links a:hover {
+.landing-footer-links button:hover {
   color: var(--ink);
+}
+
+.landing-footer {
+  justify-content: space-between;
+}
+
+/* ---------- legal ---------- */
+
+.legal-modal {
+  width: min(620px, 100%);
+  gap: 22px;
+}
+
+.legal-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.legal-updated {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.legal-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legal-section-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.legal-section-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--muted);
 }
 
 @media (max-width: 760px) {
@@ -2006,8 +2141,8 @@ textarea {
 .home-feature {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 18px;
+  gap: 10px;
+  padding: 20px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
