@@ -27,7 +27,7 @@ const mask = (value) =>
   value.length <= 8 ? "set" : `${value.slice(0, 4)}…${value.slice(-2)} (${value.length} chars)`;
 
 const line = (ok, label, detail) =>
-  console.log(`${ok ? "  ok " : "  -- "}${label.padEnd(24)}${detail}`);
+  console.log(`${ok ? "  ok " : "  -- "}${label.padEnd(30)}${detail}`);
 
 console.log("");
 if (!loaded) {
@@ -53,6 +53,25 @@ if (apify) {
   line(true, "Instagram Graph", "handle lookup only, no geo search");
 } else {
   line(false, "none", "the app will serve generated sample data");
+}
+
+console.log("\nStorage");
+const db = env.DATABASE_URL ?? "";
+if (db) {
+  const host = db.match(/@([^/?]+)/)?.[1] ?? "unknown host";
+  line(true, "Postgres", host);
+  if (!/^postgres(ql)?:\/\//.test(db)) {
+    line(false, "warning", "the URL should start with postgresql://");
+  }
+} else {
+  line(false, "files in .data", "fine on a server with a disk, breaks on serverless hosts");
+}
+
+console.log("\nAdmin");
+if (env.ADMIN_PASSWORD) {
+  line(true, env.ADMIN_EMAIL || "loomeracompany@gmail.com", `password ${mask(env.ADMIN_PASSWORD)}`);
+} else {
+  line(false, "ADMIN_PASSWORD", "not set — no admin account is created");
 }
 
 console.log("\nSessions");

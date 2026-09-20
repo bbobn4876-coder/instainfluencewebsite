@@ -28,6 +28,20 @@ whoever connected the mailbox. Sessions are HMAC-signed cookies (HttpOnly, 30 da
 `AUTH_SECRET` to pin the signing key, otherwise one is generated into `.data/secret` on first run.
 Every API route rejects an unauthenticated request with 401.
 
+## Storage
+
+Set `DATABASE_URL` and accounts, their settings and the generated session key live in Postgres;
+leave it unset and they go into files under `.data`. The tables (`users`, `settings`, `app_meta`)
+are created on the first request, so there is no migration step.
+
+Serverless hosts — **Netlify and Vercel** — have no writable disk and start fresh instances, so a
+database is required there: without it every signup disappears within minutes. A VPS, Railway
+with a volume or Render with a persistent disk can keep using files.
+
+A free Postgres takes a couple of minutes at [neon.tech](https://neon.tech): create a project,
+copy the connection string, put it in `DATABASE_URL`. `npm run check-env` then prints the host it
+will connect to.
+
 ## Admin
 
 `ADMIN_EMAIL` (default `loomeracompany@gmail.com`) names the one account that sees the **Admin**
@@ -58,6 +72,7 @@ you can confirm a token was picked up without pasting it anywhere.
 | Contact parsing | `lib/contacts.ts` | Emails (incl. `name (at) domain.com`), phones, social links |
 | Outreach | `lib/outreach.ts` | SMTP sending + drafts for Instagram and other networks |
 | Inbox | `lib/inbox.ts`, `app/api/inbox` | IMAP, Telegram and Instagram replies |
+| Storage | `lib/db.ts` | Postgres when DATABASE_URL is set, files otherwise |
 | Accounts | `lib/auth.ts`, `lib/session.ts`, `app/api/auth` | Sign up, sign in, session cookies |
 | Admin | `app/api/admin`, Admin page | Account list, server integrations, deletion |
 | Setup guide | `app/GuideModal.tsx` | Step-by-step connection instructions in Settings |

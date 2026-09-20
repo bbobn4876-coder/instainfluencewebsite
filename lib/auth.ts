@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import crypto from "crypto";
 import path from "path";
+import { databaseConfigured, query } from "./db";
 
 export type User = { id: string; email: string; createdAt: string; isAdmin: boolean };
 
@@ -17,12 +18,48 @@ const SECRET_FILE = path.join(DATA_DIR, "secret");
 export const SESSION_COOKIE = "loomera_session";
 const SESSION_DAYS = 30;
 
+type UserRow = { id: string; email: string; created_at: Date; salt: string; hash: string };
+
+const fromRow = (row: UserRow): StoredUser => ({
+  id: row.id,
+  email: row.email,
+  createdAt: new Date(row.created_at).toISOString(),
+  salt: row.salt,
+  hash: row.hash,
+});
+
 async function readUsers(): Promise<StoredUser[]> {
+  if (databaseConfigured()) {
+    const rows = await query<UserRow>("SELECT id, email, created_at, salt, hash FROM users ORDER BY created_at");
+    return rows.map(fromRow);
+  }
   try {
     return JSON.parse(await fs.readFile(USERS_FILE, "utf8")) as StoredUser[];
   } catch {
     return [];
   }
+}
+
+async function findUser(where: { id?: string; email?: string }): Promise<StoredUser | undefined> {
+  if (databaseConfigured()) {
+    const rows = where.id
+      ? await query<UserRow>("SELECT id, email, created_at, salt, hash FROM users WHERE id = $1", [where.id])
+      : await query<UserRow>("SELECT id, email, created_at, salt, hash FROM users WHERE email = $1", [where.email]);
+    return rows[0] ? fromRow(rows[0]) : undefined;
+  }
+  const users = await readUsers();
+  return users.find((u) => (where.id ? u.id === where.id : u.email === where.email));
+}
+
+async function insertUser(user: StoredUser): Promise<void> {
+  if (databaseConfigured()) {
+    await query(
+      "INSERT INTO users (id, email, created_at, salt, hash) VALUES ($1, $2, $3, $4, $5)",
+      [user.id, user.email, user.createdAt, user.salt, user.hash],
+    );
+    return;
+  }
+  await writeUsers([...(await readUsers()), user]);
 }
 
 async function writeUsers(users: StoredUser[]): Promise<void> {
@@ -33,6 +70,20 @@ async function writeUsers(users: StoredUser[]): Promise<void> {
 /** Signing key for session cookies: from the env, or generated once and stored. */
 async function secret(): Promise<string> {
   if (process.env.AUTH_SECRET) return process.env.AUTH_SECRET;
+
+  if (databaseConfigured()) {
+    // A generated key has to be shared by every serverless instance.
+    const rows = await query<{ value: string }>("SELECT value FROM app_meta WHERE key = 'auth_secret'");
+    if (rows[0]) return rows[0].value;
+    const generated = crypto.randomBytes(32).toString("hex");
+    await query(
+      "INSERT INTO app_meta (key, value) VALUES ('auth_secret', $1) ON CONFLICT (key) DO NOTHING",
+      [generated],
+    );
+    const stored = await query<{ value: string }>("SELECT value FROM app_meta WHERE key = 'auth_secret'");
+    return stored[0]?.value ?? generated;
+  }
+
   try {
     return await fs.readFile(SECRET_FILE, "utf8");
   } catch {
@@ -58,9 +109,8 @@ export function validateCredentials(email: string, password: string): string | n
 }
 
 export async function createUser(email: string, password: string): Promise<User | { error: string }> {
-  const users = await readUsers();
   const normalized = normalizeEmail(email);
-  if (users.some((u) => u.email === normalized)) {
+  if (await findUser({ email: normalized })) {
     return { error: "An account with this email already exists." };
   }
   const salt = crypto.randomBytes(16).toString("hex");
@@ -71,7 +121,7 @@ export async function createUser(email: string, password: string): Promise<User 
     salt,
     hash: hashPassword(password, salt),
   };
-  await writeUsers([...users, user]);
+  await insertUser(user);
   return publicUser(user);
 }
 
@@ -91,8 +141,7 @@ function publicUser(user: StoredUser): User {
 export async function ensureAdmin(): Promise<void> {
   const password = process.env.ADMIN_PASSWORD;
   if (!password || password.length < 8) return;
-  const users = await readUsers();
-  if (users.some((u) => u.email === ADMIN_EMAIL)) return;
+  if (await findUser({ email: ADMIN_EMAIL })) return;
   await createUser(ADMIN_EMAIL, password);
 }
 
@@ -101,16 +150,18 @@ export async function listUsers(): Promise<User[]> {
 }
 
 export async function deleteUser(userId: string): Promise<boolean> {
-  const users = await readUsers();
-  const user = users.find((u) => u.id === userId);
+  const user = await findUser({ id: userId });
   if (!user || user.email === ADMIN_EMAIL) return false;
-  await writeUsers(users.filter((u) => u.id !== userId));
+  if (databaseConfigured()) {
+    await query("DELETE FROM users WHERE id = $1", [userId]);
+    return true;
+  }
+  await writeUsers((await readUsers()).filter((u) => u.id !== userId));
   return true;
 }
 
 export async function verifyUser(email: string, password: string): Promise<User | null> {
-  const users = await readUsers();
-  const user = users.find((u) => u.email === normalizeEmail(email));
+  const user = await findUser({ email: normalizeEmail(email) });
   if (!user) return null;
   const candidate = Buffer.from(hashPassword(password, user.salt), "hex");
   const stored = Buffer.from(user.hash, "hex");
@@ -142,8 +193,7 @@ export async function userFromToken(token: string | undefined): Promise<User | n
   const b = Buffer.from(expected, "hex");
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
 
-  const users = await readUsers();
-  const user = users.find((u) => u.id === userId);
+  const user = await findUser({ id: userId });
   return user ? publicUser(user) : null;
 }
 
