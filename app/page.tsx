@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ALL, CATEGORIES, COUNTRIES } from "@/lib/countries";
 import { dict, type Language } from "@/lib/i18n";
 import { MAIL_PROVIDERS, guessProvider, providerById } from "@/lib/mailProviders";
 import Select from "./Select";
 import ProfileModal from "./ProfileModal";
-import TokenEditor, { type TokenEditorHandle } from "./TokenEditor";
+import TokenEditor from "./TokenEditor";
 import { TOKENS } from "@/lib/tokens";
 import type { PublicSettings } from "@/lib/settings";
 import type { InboxChannel, InboxMessage, ChannelStatus } from "@/lib/inbox";
@@ -126,7 +126,6 @@ export default function Page() {
   const [imapPassword, setImapPassword] = useState("");
 
   const [details, setDetails] = useState<Influencer | null>(null);
-  const bodyEditor = useRef<TokenEditorHandle>(null);
 
   const [collapsed, setCollapsed] = useState(false);
 
@@ -521,7 +520,16 @@ export default function Page() {
           {view === "compose" ? (
             <>
               <h1 className="view-title">{t.compose.title}</h1>
-              <p className="view-sub">{t.compose.sub}</p>
+              <p className="view-sub">
+                {t.compose.sub}{" "}
+                <span className="token-words">
+                  {TOKENS.map((token) => (
+                    <span className="token-word" key={token.id}>
+                      {token.words[language]}
+                    </span>
+                  ))}
+                </span>
+              </p>
               <div className="compose">
                 <div className="toggles">
                   {(["email", "instagram", "other"] as const).map((channel) => (
@@ -532,21 +540,6 @@ export default function Page() {
                       onClick={() => setChannels((c) => ({ ...c, [channel]: !c[channel] }))}
                     >
                       {t.compose[channel]}
-                    </button>
-                  ))}
-                </div>
-                <div className="token-buttons">
-                  {TOKENS.map((token) => (
-                    <button
-                      key={token.id}
-                      className="token-button"
-                      title={t.compose.insert}
-                      onClick={() => {
-                        setTemplateEdited(true);
-                        bodyEditor.current?.insert(token.words[language]);
-                      }}
-                    >
-                      {token.words[language]}
                     </button>
                   ))}
                 </div>
@@ -564,7 +557,6 @@ export default function Page() {
                 <div className="field">
                   {t.compose.message}
                   <TokenEditor
-                    ref={bodyEditor}
                     rows={12}
                     value={body}
                     onChange={(next) => {

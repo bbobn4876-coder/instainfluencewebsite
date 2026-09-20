@@ -799,37 +799,64 @@ textarea {
   background: rgba(156, 35, 71, 0.45);
 }
 
+/*
+ * The mirror must lay out exactly like the textarea, so a highlighted word may
+ * not change font weight, padding or margin — the visual padding comes from a
+ * box-shadow spread, which takes no space.
+ */
 .token {
-  padding: 1px 4px;
-  margin: 0 -1px;
-  border-radius: 5px;
-  background: linear-gradient(135deg, rgba(196, 44, 90, 0.95), rgba(140, 22, 56, 0.95));
+  border-radius: 4px;
+  background-color: rgba(196, 44, 90, 0.92);
   color: #fff;
-  font-weight: 600;
-  box-shadow: 0 0 14px rgba(196, 44, 90, 0.45);
+  font: inherit;
+  animation: token-in 0.32s cubic-bezier(0.22, 0.61, 0.36, 1);
+  box-shadow:
+    0 0 0 2px rgba(196, 44, 90, 0.92),
+    0 0 16px rgba(196, 44, 90, 0.5);
 }
 
-.token-buttons {
-  display: flex;
+@keyframes token-in {
+  from {
+    background-color: rgba(196, 44, 90, 0);
+    color: var(--ink);
+    box-shadow:
+      0 0 0 2px rgba(196, 44, 90, 0),
+      0 0 0 rgba(196, 44, 90, 0);
+  }
+  60% {
+    box-shadow:
+      0 0 0 3px rgba(196, 44, 90, 0.95),
+      0 0 22px rgba(196, 44, 90, 0.75);
+  }
+  to {
+    background-color: rgba(196, 44, 90, 0.92);
+    color: #fff;
+    box-shadow:
+      0 0 0 2px rgba(196, 44, 90, 0.92),
+      0 0 16px rgba(196, 44, 90, 0.5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .token {
+    animation: none;
+  }
+}
+
+.token-words {
+  display: inline-flex;
   flex-wrap: wrap;
   gap: 6px;
+  align-items: center;
 }
 
-.token-button {
-  padding: 5px 11px;
+.token-word {
+  padding: 2px 8px;
   border-radius: 999px;
-  border: 1px solid rgba(156, 35, 71, 0.45);
-  background: rgba(109, 19, 48, 0.24);
-  color: #f0d6de;
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-  transition: background 0.16s ease, color 0.16s ease;
-}
-
-.token-button:hover {
-  background: rgba(156, 35, 71, 0.5);
-  color: #fff;
+  border: 1px solid rgba(156, 35, 71, 0.4);
+  background: rgba(109, 19, 48, 0.2);
+  color: #edd3dc;
+  font-size: 11px;
 }
 
 /* ---------- profile modal ---------- */

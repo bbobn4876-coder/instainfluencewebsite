@@ -98,5 +98,5 @@ failing the whole page.
 Message personalisation uses plain words instead of a placeholder syntax: write **Name**,
 **Username**, **Followers**, **Niche**, **City** or **Country** (or their Russian spellings) and
 each recipient gets their own value. The words are highlighted as you type, and matching is
-case-sensitive, so "name" in an ordinary sentence is left alone. Buttons above the editor insert
-them at the caret. See `lib/tokens.ts`.
+case-sensitive, so "name" in an ordinary sentence is left alone. The highlight is drawn by a mirror layer that shares the
+input's exact metrics — the chip adds no padding and no bold — so the caret never drifts. See `lib/tokens.ts`.
