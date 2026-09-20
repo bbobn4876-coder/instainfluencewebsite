@@ -131,21 +131,51 @@ export type CrawlStats = {
   inBand: number;
 };
 
+/**
+ * Apify bills per scraped result, so one search has a result budget and the
+ * two stages split it. Roughly a third goes on finding candidates and the rest
+ * on reading their profiles. At the instagram-scraper's usual rate this is
+ * about $2.3 per 1000 results, so the default search costs a few dollars —
+ * raise APIFY_RESULT_BUDGET only as far as the Apify plan allows.
+ */
+const RESULT_BUDGET = Number(process.env.APIFY_RESULT_BUDGET ?? 3000);
+
 /** How many hashtag posts to scan for candidates before fetching their profiles. */
-const CANDIDATE_POOL = Number(process.env.APIFY_CANDIDATE_POOL ?? 30000);
+const CANDIDATE_POOL = Number(
+  process.env.APIFY_CANDIDATE_POOL ?? Math.round(RESULT_BUDGET / 3),
+);
 
 /** Ceiling on the crawl: hashtag candidates plus everything it snowballs into. */
-const PROFILE_BUDGET = Number(process.env.APIFY_PROFILE_BUDGET ?? 10000);
+const PROFILE_BUDGET = Number(
+  process.env.APIFY_PROFILE_BUDGET ?? RESULT_BUDGET - Math.round(RESULT_BUDGET / 3),
+);
 
 /** Profiles per round: small enough that a round finishes in a minute or so. */
-const PROFILE_BATCH = Number(process.env.APIFY_PROFILE_BATCH ?? 400);
+const PROFILE_BATCH = Number(process.env.APIFY_PROFILE_BATCH ?? 200);
 
 /** Keeps every call well inside a serverless function's time limit. */
+/** Turns Apify's raw error bodies into something a user can act on. */
+function apifyMessage(status: number, body: string): string {
+  if (/hard limit exceeded|platform-feature-disabled/i.test(body)) {
+    return (
+      "Your Apify account has used up its monthly quota, so no new scraping " +
+      "can start. Raise the limit or top up the account in the Apify console " +
+      "(Settings → Limits / Billing), then run the search again."
+    );
+  }
+  if (status === 401 || status === 403) {
+    return "Apify refused the token. Check APIFY_TOKEN in your environment variables.";
+  }
+  if (status === 429) {
+    return "Apify is rate-limiting this account. Wait a minute and try again.";
+  }
+  return `Apify ${status}: ${body.slice(0, 200)}`;
+}
+
 async function apifyFetch(url: string, init?: RequestInit): Promise<Response> {
   const res = await fetch(url, { ...init, cache: "no-store", signal: AbortSignal.timeout(8_000) });
   if (!res.ok) {
-    const detail = (await res.text()).slice(0, 200);
-    throw new Error(`Apify ${res.status}: ${detail}`);
+    throw new Error(apifyMessage(res.status, await res.text()));
   }
   return res;
 }

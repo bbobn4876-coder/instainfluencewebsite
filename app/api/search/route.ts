@@ -102,7 +102,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         ...fallback,
         status: "done",
-        notice: `${(error as Error).message} — showing sample data.`,
+        notice: `${(error as Error).message} Sample data is shown below in the meantime.`,
       });
     }
   }
