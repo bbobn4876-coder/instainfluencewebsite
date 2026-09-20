@@ -380,6 +380,7 @@ body {
 .content {
   flex: 1;
   overflow-y: auto;
+  animation: view-in 0.26s cubic-bezier(0.22, 0.61, 0.36, 1);
   padding: 40px 36px calc(var(--dock) + 36px);
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
@@ -429,6 +430,70 @@ body {
   text-align: center;
   padding: 24px;
   line-height: 1.6;
+}
+
+@keyframes view-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Cards and rows arrive just after the view they sit in. */
+.grid > *,
+.messages > *,
+.rows,
+.compose > * {
+  animation: item-in 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.grid > *:nth-child(1),
+.messages > *:nth-child(1),
+.compose > *:nth-child(1) {
+  animation-delay: 0.02s;
+}
+
+.grid > *:nth-child(2),
+.messages > *:nth-child(2),
+.compose > *:nth-child(2) {
+  animation-delay: 0.04s;
+}
+
+.grid > *:nth-child(3),
+.messages > *:nth-child(3),
+.compose > *:nth-child(3) {
+  animation-delay: 0.06s;
+}
+
+.grid > *:nth-child(n + 4),
+.messages > *:nth-child(n + 4),
+.compose > *:nth-child(n + 4) {
+  animation-delay: 0.08s;
+}
+
+@keyframes item-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .content,
+  .grid > *,
+  .messages > *,
+  .rows,
+  .compose > * {
+    animation: none;
+  }
 }
 
 /* ---------- cards ---------- */
@@ -1042,6 +1107,24 @@ textarea {
 .select-option[aria-selected="true"] {
   background: linear-gradient(90deg, rgba(156, 35, 71, 0.34), rgba(156, 35, 71, 0.06));
   box-shadow: inset 0 0 0 1px rgba(156, 35, 71, 0.35);
+}
+
+.select-check {
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  font-size: 10px;
+  color: transparent;
+}
+
+.select-option[aria-selected="true"] .select-check {
+  background: var(--burgundy-soft);
+  border-color: var(--burgundy-soft);
+  color: #fff;
 }
 
 .select-hint {

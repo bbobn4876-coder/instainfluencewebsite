@@ -62,12 +62,15 @@ function roundFollowers(n: number): number {
   return Math.round(n / 100) * 100;
 }
 
-export function mockSearch(query: SearchQuery): Influencer[] {
-  const country = countryByCode(query.country);
+function mockSearchOne(
+  countryCode: string,
+  category: string,
+  query: SearchQuery,
+  limit: number,
+): Influencer[] {
+  const country = countryByCode(countryCode);
   if (!country) return [];
 
-  const category = query.category ?? "lifestyle";
-  const limit = Math.min(query.limit ?? 24, 60);
   const min = query.minFollowers ?? 5_000;
   const max = Math.max(query.maxFollowers ?? 900_000, min + 1000);
   const rnd = seeded(`${country.code}|${category}|${query.keyword ?? ""}|${min}|${max}`);
@@ -123,7 +126,7 @@ export function mockSearch(query: SearchQuery): Influencer[] {
   }
 
   const keyword = query.keyword?.trim().toLowerCase();
-  const filtered = keyword
+  return keyword
     ? out.filter(
         (i) =>
           i.username.includes(keyword) ||
@@ -131,6 +134,29 @@ export function mockSearch(query: SearchQuery): Influencer[] {
           i.biography.toLowerCase().includes(keyword),
       )
     : out;
+}
 
-  return filtered.sort((a, b) => b.followers - a.followers);
+/** Spreads the requested limit across every country/niche combination. */
+export function mockSearch(query: SearchQuery): Influencer[] {
+  const countries = query.countries.filter((code) => countryByCode(code));
+  const categories = query.categories?.length ? query.categories : ["lifestyle"];
+  if (countries.length === 0) return [];
+
+  const total = Math.min(query.limit ?? 24, 120);
+  const combos = countries.length * categories.length;
+  const perCombo = Math.max(2, Math.ceil(total / combos));
+
+  const seen = new Set<string>();
+  const merged: Influencer[] = [];
+  for (const code of countries) {
+    for (const category of categories) {
+      for (const influencer of mockSearchOne(code, category, query, perCombo)) {
+        if (seen.has(influencer.username)) continue;
+        seen.add(influencer.username);
+        merged.push(influencer);
+      }
+    }
+  }
+
+  return merged.sort((a, b) => b.followers - a.followers).slice(0, total);
 }

@@ -28,7 +28,7 @@ npm run dev                  # http://localhost:3000
 | API | `app/api/search`, `app/api/outreach` | JSON endpoints used by the UI |
 | UI | `app/page.tsx`, `app/globals.css` | Discover · Selected · Compose · Results · Inbox · Settings |
 | Profile popup | `app/ProfileModal.tsx` | Avatar, full bio, contacts and links for one account |
-| Dropdowns | `app/Select.tsx` | Searchable select used for geo and niche |
+| Dropdowns | `app/Select.tsx` | Searchable single/multi select used for geo and niche |
 
 ### Keyboard
 
@@ -37,6 +37,9 @@ npm run dev                  # http://localhost:3000
 | `1` … `6` | Switch between Discover, Selected, Compose, Results, Inbox and Settings |
 | `Alt` + `1` … `6` | Same, and works while a field has focus |
 | `⌘/Ctrl` + `B`, `[` | Collapse the sidebar to icons (remembered between visits); hovering the logo shows the same toggle |
+
+Geo and niche both take several values at once — the search spreads its result limit across
+every country/niche combination and merges the results by follower count.
 
 ### Data sources
 

@@ -22,8 +22,9 @@ export type Influencer = {
 };
 
 export type SearchQuery = {
-  country: string;
-  category?: string;
+  /** One or more ISO-3166 alpha-2 codes. */
+  countries: string[];
+  categories?: string[];
   keyword?: string;
   minFollowers?: number;
   maxFollowers?: number;

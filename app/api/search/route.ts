@@ -13,14 +13,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const country = String(payload.country ?? "").toUpperCase();
-  if (!countryByCode(country)) {
-    return NextResponse.json({ error: "Unknown or missing country code." }, { status: 400 });
+  const requested = Array.isArray(payload.countries) ? payload.countries : [];
+  const countries = [...new Set(requested.map((c) => String(c).toUpperCase()))].filter((code) =>
+    countryByCode(code),
+  );
+  if (countries.length === 0) {
+    return NextResponse.json({ error: "Pick at least one known country." }, { status: 400 });
   }
 
+  const categories = Array.isArray(payload.categories)
+    ? [...new Set(payload.categories.map((c) => String(c)))]
+    : [];
+
   const query: SearchQuery = {
-    country,
-    category: payload.category ? String(payload.category) : undefined,
+    countries,
+    categories: categories.length > 0 ? categories : undefined,
     keyword: payload.keyword ? String(payload.keyword) : undefined,
     minFollowers: Number.isFinite(payload.minFollowers) ? Number(payload.minFollowers) : undefined,
     maxFollowers: Number.isFinite(payload.maxFollowers) ? Number(payload.maxFollowers) : undefined,

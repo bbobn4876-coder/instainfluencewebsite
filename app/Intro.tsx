@@ -7,29 +7,16 @@ const HOLD = 700;
 const FADE_OUT = 900;
 
 /**
- * Logo splash on the first load of a session: it fades in, holds, then
- * dissolves into the burgundy blur behind the app.
+ * Logo splash on every page load: it fades in, holds, then dissolves into
+ * the burgundy blur behind the app.
  */
 export default function Intro() {
   const [phase, setPhase] = useState<"hidden" | "in" | "out" | "done">("hidden");
 
   useEffect(() => {
-    let seen = false;
-    try {
-      seen = window.sessionStorage.getItem("intro-seen") === "1";
-    } catch {
-      /* storage can be blocked; show the intro then */
-    }
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (seen || reduced) {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setPhase("done");
       return;
-    }
-
-    try {
-      window.sessionStorage.setItem("intro-seen", "1");
-    } catch {
-      /* ignore */
     }
 
     setPhase("in");

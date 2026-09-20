@@ -33,8 +33,8 @@ function toInfluencer(item: ApifyItem, query: SearchQuery, source: Influencer["s
     biography: bio,
     followers: item.followersCount ?? 0,
     engagementRate: 0,
-    country: query.country,
-    category: item.businessCategoryName ?? query.category ?? "lifestyle",
+    country: query.countries[0] ?? "",
+    category: item.businessCategoryName ?? query.categories?.[0] ?? "lifestyle",
     avatarUrl: item.profilePicUrl,
     profileUrl: `https://instagram.com/${item.username}`,
     emails: extractEmails(bio, item.businessEmail),
@@ -52,7 +52,9 @@ async function apifySearch(query: SearchQuery): Promise<Influencer[]> {
   const token = process.env.APIFY_TOKEN!;
   const actor = process.env.APIFY_ACTOR_ID ?? "apify~instagram-scraper";
   const limit = Math.min(query.limit ?? 24, 100);
-  const terms = [query.keyword, query.category, query.country].filter(Boolean).join(" ");
+  const terms = [query.keyword, ...(query.categories ?? []), ...query.countries]
+    .filter(Boolean)
+    .join(" ");
 
   const res = await fetch(
     `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${encodeURIComponent(token)}`,

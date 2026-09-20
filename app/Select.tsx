@@ -5,11 +5,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 export type SelectOption = { value: string; label: string; hint?: string };
 
 type Props = {
-  value: string;
+  /** One value, or several when `multiple` is set. */
+  value: string[];
   options: SelectOption[];
-  onChange: (value: string) => void;
+  onChange: (value: string[]) => void;
   searchPlaceholder: string;
   emptyLabel: string;
+  multiple?: boolean;
+  /** Rendered on the trigger when more than one option is picked. */
+  summary?: (count: number) => string;
   /** Opens upward when the trigger sits in the bottom dock. */
   drop?: "up" | "down";
 };
@@ -20,6 +24,8 @@ export default function Select({
   onChange,
   searchPlaceholder,
   emptyLabel,
+  multiple = false,
+  summary,
   drop = "up",
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -28,7 +34,13 @@ export default function Select({
   const root = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const current = options.find((o) => o.value === value);
+  const chosen = options.filter((o) => value.includes(o.value));
+  const triggerLabel =
+    chosen.length === 0
+      ? emptyLabel
+      : chosen.length === 1 || !summary
+        ? chosen.map((o) => o.label).join(", ")
+        : summary(chosen.length);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -50,14 +62,22 @@ export default function Select({
   useEffect(() => {
     if (open) {
       setQuery("");
-      setActive(Math.max(0, options.findIndex((o) => o.value === value)));
+      setActive(Math.max(0, options.findIndex((o) => value.includes(o.value))));
       searchRef.current?.focus();
     }
   }, [open, options, value]);
 
   const commit = (option: SelectOption) => {
-    onChange(option.value);
-    setOpen(false);
+    if (!multiple) {
+      onChange([option.value]);
+      setOpen(false);
+      return;
+    }
+    // Keep at least one option picked so a search always has a target.
+    const next = value.includes(option.value)
+      ? value.filter((v) => v !== option.value)
+      : [...value, option.value];
+    onChange(next.length > 0 ? next : [option.value]);
   };
 
   const onKeyDown = (event: React.KeyboardEvent) => {
@@ -95,7 +115,7 @@ export default function Select({
           }
         }}
       >
-        <span className="select-value">{current?.label ?? emptyLabel}</span>
+        <span className="select-value">{triggerLabel}</span>
         <svg className="select-caret" viewBox="0 0 20 20" aria-hidden>
           <path d="M6 8l4 4 4-4" />
         </svg>
@@ -123,12 +143,17 @@ export default function Select({
                   type="button"
                   key={option.value}
                   role="option"
-                  aria-selected={option.value === value}
+                  aria-selected={value.includes(option.value)}
                   className="select-option"
                   data-active={index === active}
                   onMouseEnter={() => setActive(index)}
                   onClick={() => commit(option)}
                 >
+                  {multiple ? (
+                    <span className="select-check" aria-hidden>
+                      ✓
+                    </span>
+                  ) : null}
                   <span>{option.label}</span>
                   {option.hint ? <span className="select-hint">{option.hint}</span> : null}
                 </button>

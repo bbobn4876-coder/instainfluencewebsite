@@ -91,8 +91,8 @@ export default function Page() {
   const [language, setLanguage] = useState<Language>("en");
   const t = dict(language);
 
-  const [country, setCountry] = useState("US");
-  const [category, setCategory] = useState("fashion");
+  const [countries, setCountries] = useState<string[]>(["US"]);
+  const [categories, setCategories] = useState<string[]>(["fashion"]);
   const [keyword, setKeyword] = useState("");
   const [minFollowers, setMinFollowers] = useState(10_000);
   const [maxFollowers, setMaxFollowers] = useState(500_000);
@@ -206,7 +206,14 @@ export default function Page() {
       const res = await fetch("/api/search", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ country, category, keyword, minFollowers, maxFollowers, limit: 30 }),
+        body: JSON.stringify({
+          countries,
+          categories,
+          keyword,
+          minFollowers,
+          maxFollowers,
+          limit: 30,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Search failed.");
@@ -220,7 +227,7 @@ export default function Page() {
     } finally {
       setLoading(false);
     }
-  }, [country, category, keyword, minFollowers, maxFollowers]);
+  }, [countries, categories, keyword, minFollowers, maxFollowers]);
 
   const toggle = (id: string) =>
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -459,7 +466,7 @@ export default function Page() {
       </aside>
 
       <main className="main">
-        <div className="content">
+        <div className="content" key={view}>
           {notice ? <div className="notice">{notice}</div> : null}
 
           {view === "discover" ? (
@@ -891,8 +898,10 @@ export default function Page() {
                 <div className="field">
                   {t.discover.geo}
                   <Select
-                    value={country}
-                    onChange={setCountry}
+                    multiple
+                    value={countries}
+                    onChange={setCountries}
+                    summary={t.discover.chosen}
                     searchPlaceholder={t.discover.searchPlaceholder}
                     emptyLabel={t.discover.nothingFound}
                     options={[...COUNTRIES]
@@ -907,8 +916,10 @@ export default function Page() {
                 <div className="field">
                   {t.discover.niche}
                   <Select
-                    value={category}
-                    onChange={setCategory}
+                    multiple
+                    value={categories}
+                    onChange={setCategories}
+                    summary={t.discover.chosen}
                     searchPlaceholder={t.discover.searchPlaceholder}
                     emptyLabel={t.discover.nothingFound}
                     options={CATEGORIES.map((c) => ({ value: c, label: c }))}
