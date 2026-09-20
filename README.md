@@ -26,11 +26,11 @@ npm run dev                  # http://localhost:3000
 | Account settings | `lib/settings.ts`, `app/api/settings` | Sender account, social handles, language |
 | Translations | `lib/i18n.ts` | EN/RU strings |
 | API | `app/api/search`, `app/api/outreach` | JSON endpoints used by the UI |
-| UI | `app/page.tsx`, `app/globals.css` | Discover · Selected · Compose · Results · Inbox · Settings |
+| UI | `app/page.tsx`, `app/globals.css` | Discover · Compose · Results · Inbox · Settings |
 | Profile popup | `app/ProfileModal.tsx` | Avatar, full bio, contacts and links for one account |
 | Dropdowns | `app/Select.tsx` | Searchable single/multi select used for geo and niche |
 
-On Discover, Selected and Settings the bottom bar folds while you scroll down: it slides right
+On Discover and Settings the bottom bar folds while you scroll down: it slides right
 and dissolves into blur, leaving two round icon buttons in the bottom-right corner with the
 page's main actions. Scrolling up blurs them away and brings the full bar back.
 
@@ -38,8 +38,8 @@ page's main actions. Scrolling up blurs them away and brings the full bar back.
 
 | Key | Action |
 | --- | --- |
-| `1` … `6` | Switch between Discover, Selected, Compose, Results, Inbox and Settings |
-| `Alt` + `1` … `6` | Same, and works while a field has focus |
+| `1` … `5` | Switch between Discover, Compose, Results, Inbox and Settings |
+| `Alt` + `1` … `5` | Same, and works while a field has focus |
 | `⌘/Ctrl` + `B`, `[` | Collapse the sidebar to icons (remembered between visits); hovering the logo shows the same toggle |
 
 Geo and niche both take several values at once, or **All**, which drops that constraint
@@ -64,7 +64,7 @@ path in your message.
 
 ### Settings page
 
-Open **Settings** (hotkey `6`) to connect the account outreach is sent from. Pick a provider
+Open **Settings** (hotkey `5`) to connect the account outreach is sent from. Pick a provider
 (Gmail, Outlook, Yandex, Mail.ru, Zoho, Resend, SendGrid or custom), type the address and an app
 password — SMTP and IMAP hosts, ports and logins are filled in from the preset, and typing a
 known address picks the provider by itself. Hosts stay editable under **Advanced**. The social
@@ -81,7 +81,7 @@ is saved yet. **Test connection** runs an SMTP handshake without sending anythin
 
 ### Inbox
 
-The **Inbox** page (hotkey `5`) collects replies and filters them by channel:
+The **Inbox** page (hotkey `4`) collects replies and filters them by channel:
 
 - **Email** — read over IMAP with the account from Settings (login falls back to the SMTP one).
 - **Telegram** — chats that wrote to the bot whose token is saved in Settings.

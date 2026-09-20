@@ -12,7 +12,7 @@ import type { PublicSettings } from "@/lib/settings";
 import type { InboxChannel, InboxMessage, ChannelStatus } from "@/lib/inbox";
 import type { Influencer, OutreachResult } from "@/lib/types";
 
-type View = "discover" | "selected" | "compose" | "results" | "inbox" | "settings";
+type View = "discover" | "compose" | "results" | "inbox" | "settings";
 
 const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
   {
@@ -26,17 +26,8 @@ const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
     ),
   },
   {
-    id: "selected",
-    hotkey: "2",
-    icon: (
-      <svg viewBox="0 0 20 20" aria-hidden>
-        <path d="M3.5 10.5l3.5 3.5 9-9" />
-      </svg>
-    ),
-  },
-  {
     id: "compose",
-    hotkey: "3",
+    hotkey: "2",
     icon: (
       <svg viewBox="0 0 20 20" aria-hidden>
         <path d="M13.5 3.5l3 3-9 9H4.5v-3z" />
@@ -45,7 +36,7 @@ const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
   },
   {
     id: "results",
-    hotkey: "4",
+    hotkey: "3",
     icon: (
       <svg viewBox="0 0 20 20" aria-hidden>
         <path d="M4 16V9M10 16V4M16 16v-5" />
@@ -54,7 +45,7 @@ const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
   },
   {
     id: "inbox",
-    hotkey: "5",
+    hotkey: "4",
     icon: (
       <svg viewBox="0 0 20 20" aria-hidden>
         <path d="M2.8 5.5h14.4v9H2.8z" />
@@ -64,7 +55,7 @@ const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
   },
   {
     id: "settings",
-    hotkey: "6",
+    hotkey: "5",
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden>
         <circle cx="12" cy="12" r="3.1" />
@@ -101,6 +92,7 @@ export default function Page() {
 
   const [influencers, setInfluencers] = useState<Influencer[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [onlySelected, setOnlySelected] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -224,6 +216,7 @@ export default function Page() {
       if (!res.ok) throw new Error(data.error ?? "Search failed.");
       setInfluencers(data.influencers ?? []);
       setSelectedIds([]);
+      setOnlySelected(false);
       setNotice(data.notice ?? null);
       setView("discover");
     } catch (error) {
@@ -402,7 +395,6 @@ export default function Page() {
 
   const counts: Record<View, number | undefined> = {
     discover: influencers.length || undefined,
-    selected: selectedIds.length || undefined,
     compose: undefined,
     results: results.length || undefined,
     inbox: inbox.filter((m) => m.unread).length || undefined,
@@ -421,7 +413,9 @@ export default function Page() {
 
   const emailReady = Boolean(settings.email.host && settings.email.user && settings.email.hasPassword);
 
-  const foldableDock = view === "discover" || view === "selected" || view === "settings";
+  const visibleInfluencers = onlySelected ? selected : influencers;
+
+  const foldableDock = view === "discover" || view === "settings";
 
   const onContentScroll = (event: React.UIEvent<HTMLDivElement>) => {
     if (!foldableDock) return;
@@ -494,38 +488,39 @@ export default function Page() {
             <>
               <h1 className="view-title">{t.discover.title}</h1>
               <p className="view-sub">{t.discover.sub}</p>
+
+              {influencers.length > 0 ? (
+                <div className="toggles inbox-filters">
+                  <button
+                    className="toggle"
+                    aria-pressed={!onlySelected}
+                    onClick={() => setOnlySelected(false)}
+                  >
+                    {t.discover.filterAll}
+                    <span className="toggle-count">{influencers.length}</span>
+                  </button>
+                  <button
+                    className="toggle"
+                    aria-pressed={onlySelected}
+                    onClick={() => setOnlySelected(true)}
+                  >
+                    {t.discover.filterSelected}
+                    <span className="toggle-count">{selectedIds.length}</span>
+                  </button>
+                </div>
+              ) : null}
+
               {influencers.length === 0 ? (
                 <div className="empty">{loading ? t.discover.loading : t.discover.empty}</div>
+              ) : visibleInfluencers.length === 0 ? (
+                <div className="empty">{t.discover.emptySelected}</div>
               ) : (
                 <div className="grid">
-                  {influencers.map((influencer) => (
+                  {visibleInfluencers.map((influencer) => (
                     <InfluencerCard
                       key={influencer.id}
                       influencer={influencer}
                       selected={selectedIds.includes(influencer.id)}
-                      onToggle={() => toggle(influencer.id)}
-                      onInfo={() => setDetails(influencer)}
-                      labels={t.discover}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
-          ) : null}
-
-          {view === "selected" ? (
-            <>
-              <h1 className="view-title">{t.selected.title}</h1>
-              <p className="view-sub">{t.selected.sub(selected.length)}</p>
-              {selected.length === 0 ? (
-                <div className="empty">{t.selected.empty}</div>
-              ) : (
-                <div className="grid">
-                  {selected.map((influencer) => (
-                    <InfluencerCard
-                      key={influencer.id}
-                      influencer={influencer}
-                      selected
                       onToggle={() => toggle(influencer.id)}
                       onInfo={() => setDetails(influencer)}
                       labels={t.discover}
@@ -920,7 +915,7 @@ export default function Page() {
         </div>
 
         <div className="dock" data-compact={foldableDock && dockCompact}>
-          {view === "discover" || view === "selected" ? (
+          {view === "discover" ? (
             <>
               <div className="dock-fields">
                 <div className="field">
@@ -1016,7 +1011,13 @@ export default function Page() {
                 </span>
               </div>
               <div className="dock-actions">
-                <button className="btn btn-ghost" onClick={() => setView("selected")}>
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => {
+                    setOnlySelected(true);
+                    setView("discover");
+                  }}
+                >
                   {t.compose.back}
                 </button>
                 <button className="btn" onClick={send} disabled={sending || selected.length === 0}>
