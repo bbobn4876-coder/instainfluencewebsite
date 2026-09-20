@@ -53,7 +53,8 @@ export const STRINGS = {
     },
     compose: {
       title: "Compose",
-      sub: "Placeholders:",
+      sub: "Type these words anywhere in the message and each recipient gets their own value — they light up as you type:",
+      insert: "insert",
       subject: "subject",
       message: "message",
       email: "email",
@@ -65,10 +66,10 @@ export const STRINGS = {
       back: "Back to selection",
       send: "Send outreach",
       sending: "Sending…",
-      defaultSubject: "Paid collaboration with {{name}}",
-      defaultBody: `Hi {{name}},
+      defaultSubject: "Paid collaboration with Name",
+      defaultBody: `Hi Name,
 
-I've been following @{{username}} and love how your {{category}} work lands with your {{followers}} followers in {{city}}.
+I've been following Username and love how your Niche work lands with your Followers followers in City.
 
 We're planning a paid collaboration this quarter and would like you in it. Happy to send the brief and rates — just let me know if you're open.
 
@@ -203,7 +204,8 @@ Best,
     },
     compose: {
       title: "Письмо",
-      sub: "Подстановки:",
+      sub: "Впишите эти слова в любое место письма — каждый получатель увидит своё значение. Слова подсвечиваются сразу:",
+      insert: "вставить",
       subject: "тема",
       message: "сообщение",
       email: "почта",
@@ -215,10 +217,10 @@ Best,
       back: "Назад к выбору",
       send: "Отправить рассылку",
       sending: "Отправляем…",
-      defaultSubject: "Сотрудничество с {{name}}",
-      defaultBody: `Здравствуйте, {{name}}!
+      defaultSubject: "Сотрудничество с Имя",
+      defaultBody: `Здравствуйте, Имя!
 
-Слежу за @{{username}} — нравится, как ваш контент в нише «{{category}}» заходит аудитории в {{followers}} подписчиков ({{city}}).
+Слежу за Юзернейм — нравится, как ваш контент в нише «Ниша» заходит аудитории в Подписчики подписчиков (Город).
 
 В этом квартале планируем платное сотрудничество и хотели бы позвать вас. Готов прислать бриф и условия — напишите, если интересно.
 

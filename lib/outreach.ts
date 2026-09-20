@@ -1,5 +1,6 @@
 import nodemailer, { type Transporter } from "nodemailer";
 import { normalizeHandle, readSettings } from "./settings";
+import { renderTemplate } from "./tokens";
 import type { Influencer, OutreachResult } from "./types";
 
 export type OutreachRequest = {
@@ -8,16 +9,6 @@ export type OutreachRequest = {
   body: string;
   channels: { email: boolean; instagram: boolean; other: boolean };
 };
-
-export function renderTemplate(template: string, influencer: Influencer): string {
-  return template
-    .replace(/\{\{\s*username\s*\}\}/g, influencer.username)
-    .replace(/\{\{\s*name\s*\}\}/g, influencer.fullName || influencer.username)
-    .replace(/\{\{\s*followers\s*\}\}/g, influencer.followers.toLocaleString("en-US"))
-    .replace(/\{\{\s*category\s*\}\}/g, influencer.category)
-    .replace(/\{\{\s*country\s*\}\}/g, influencer.country)
-    .replace(/\{\{\s*city\s*\}\}/g, influencer.city ?? influencer.country);
-}
 
 type MailAccount = { transport: Transporter; from: string; replyTo?: string };
 

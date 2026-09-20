@@ -95,5 +95,8 @@ failing the whole page.
   renders the personalised text per recipient and gives a direct link to the conversation
   (`ig.me/m/<handle>`, Telegram, TikTok, …) that you open from the Results view.
 
-Message placeholders: `{{name}}`, `{{username}}`, `{{followers}}`, `{{category}}`, `{{city}}`,
-`{{country}}`.
+Message personalisation uses plain words instead of a placeholder syntax: write **Name**,
+**Username**, **Followers**, **Niche**, **City** or **Country** (or their Russian spellings) and
+each recipient gets their own value. The words are highlighted as you type, and matching is
+case-sensitive, so "name" in an ordinary sentence is left alone. Buttons above the editor insert
+them at the caret. See `lib/tokens.ts`.

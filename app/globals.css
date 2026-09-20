@@ -740,6 +740,98 @@ textarea {
   }
 }
 
+/* ---------- token editor ---------- */
+
+.token-editor {
+  position: relative;
+  width: 100%;
+}
+
+.token-mirror,
+.token-input {
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 9px 11px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.token-mirror {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  color: var(--ink);
+  pointer-events: none;
+}
+
+.token-editor-single .token-mirror {
+  white-space: pre;
+  overflow-x: hidden;
+}
+
+.token-input {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  resize: vertical;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--line);
+  /* The mirror behind carries the visible text. */
+  color: transparent;
+  caret-color: var(--ink);
+}
+
+.token-input::placeholder {
+  color: var(--muted);
+}
+
+.token-input:focus {
+  border-color: rgba(156, 35, 71, 0.7);
+  background: rgba(255, 255, 255, 0.06);
+  outline: none;
+}
+
+.token-input::selection {
+  background: rgba(156, 35, 71, 0.45);
+}
+
+.token {
+  padding: 1px 4px;
+  margin: 0 -1px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, rgba(196, 44, 90, 0.95), rgba(140, 22, 56, 0.95));
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 0 14px rgba(196, 44, 90, 0.45);
+}
+
+.token-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.token-button {
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(156, 35, 71, 0.45);
+  background: rgba(109, 19, 48, 0.24);
+  color: #f0d6de;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.token-button:hover {
+  background: rgba(156, 35, 71, 0.5);
+  color: #fff;
+}
+
 /* ---------- profile modal ---------- */
 
 .card-actions {
