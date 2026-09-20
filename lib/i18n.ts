@@ -22,7 +22,7 @@ export const STRINGS = {
         `Looked at ${scanned} accounts under those hashtags, ${matched} fit the follower range. Widen the range or add niches to see more.`,
       geoConfirmed: (confirmed: number, total: number) =>
         `${confirmed} of ${total} confirmed by a tagged post in that country; the rest tag no location.`,
-      tookTooLong: "The scraper is still running after an hour. Try a narrower search, or check the run in the Apify console.",
+      tookTooLong: "The scraper is still running after three hours. Try a narrower search, or check the run in the Apify console.",
       geo: "geo",
       niche: "niche",
       keyword: "keyword",
@@ -36,7 +36,10 @@ export const STRINGS = {
       selectAll: "Select all",
       download: "Download table (XLSX)",
       downloadFailed: "Could not build the table, try again",
-      foundSoFar: (n: number) => `${n} creators found so far, still scanning…`,
+      foundSoFar: (n: number, checked: number) =>
+        `${n} creators in range so far, ${checked} profiles checked — still crawling…`,
+      funnel: (posts: number, candidates: number, profiles: number, found: number) =>
+        `${found} creators in range. Scanned ${posts} posts, followed ${candidates} accounts and read ${profiles} profiles. Widen the follower range or add niches for more.`,
       deselectAll: "Clear selection",
       filters: "Filters",
       parse: "Parse profiles",
@@ -358,7 +361,7 @@ Best,
         `Просмотрено ${scanned} аккаунтов по этим хэштегам, под диапазон подписчиков подошло ${matched}. Расширьте диапазон или добавьте ниши.`,
       geoConfirmed: (confirmed: number, total: number) =>
         `${confirmed} из ${total} подтверждены геометкой поста в этой стране, остальные локацию не отмечают.`,
-      tookTooLong: "Сбор идёт дольше часа. Сузьте запрос или посмотрите статус запуска в консоли Apify.",
+      tookTooLong: "Сбор идёт дольше трёх часов. Сузьте запрос или посмотрите статус запуска в консоли Apify.",
       geo: "гео",
       niche: "ниша",
       keyword: "ключевое слово",
@@ -372,7 +375,10 @@ Best,
       selectAll: "Выбрать все",
       download: "Скачать таблицу (XLSX)",
       downloadFailed: "Не удалось собрать таблицу, попробуйте ещё раз",
-      foundSoFar: (n: number) => `Найдено ${n} аккаунтов, продолжаем поиск…`,
+      foundSoFar: (n: number, checked: number) =>
+        `В диапазоне ${n} аккаунтов, проверено профилей: ${checked} — продолжаем…`,
+      funnel: (posts: number, candidates: number, profiles: number, found: number) =>
+        `${found} аккаунтов в диапазоне. Просмотрено ${posts} постов, отобрано ${candidates} кандидатов, прочитано ${profiles} профилей. Расширьте диапазон подписчиков или добавьте ниши.`,
       deselectAll: "Снять выделение",
       filters: "Фильтры",
       parse: "Собрать профили",

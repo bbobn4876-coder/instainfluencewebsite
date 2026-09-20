@@ -1,5 +1,5 @@
 import { ALL, countryByCode } from "./countries";
-import { countryOfLocation, verdictFor } from "./geo";
+import { countryOfLocation, placeInText, verdictFor } from "./geo";
 import { extractEmails, extractLinks, extractPhones } from "./contacts";
 import { mockSearch } from "./mock";
 import type { Influencer, SearchQuery } from "./types";
@@ -33,6 +33,8 @@ type ApifyItem = {
   businessPhoneNumber?: string;
   businessCategoryName?: string;
   latestPosts?: ApifyPost[];
+  /** "Suggested for you" accounts, the seed for the snowball crawl. */
+  relatedProfiles?: { username?: string }[];
 };
 
 function median(values: number[]): number | undefined {
@@ -60,6 +62,16 @@ function postMetrics(posts: ApifyPost[] | undefined, followers: number) {
   return { medianLikes, medianComments, medianReelViews, engagementRate };
 }
 
+/** The town out of a geo hint, unless the hint is only the country itself. */
+function cityOf(geo?: GeoHint): string | undefined {
+  if (!geo?.place) return undefined;
+  const place = geo.place.split(",")[0].trim();
+  if (!place || place.toLowerCase() === (countryByCode(geo.code)?.name ?? "").toLowerCase()) {
+    return undefined;
+  }
+  return place;
+}
+
 function toInfluencer(
   item: ApifyItem,
   query: SearchQuery,
@@ -81,8 +93,9 @@ function toInfluencer(
     medianComments: metrics.medianComments,
     medianReelViews: metrics.medianReelViews,
     country: geo?.code ?? (query.countries.includes(ALL) ? "" : (query.countries[0] ?? "")),
-    // Only set when a tagged post proves where they post from.
-    city: geo?.place ? geo.place.split(",")[0].trim() : undefined,
+    // Only set when a post or the bio proves where they are; a bare country
+    // name is not a city, so it is left off rather than repeated on the card.
+    city: cityOf(geo),
     category:
       item.businessCategoryName ??
       (query.categories?.includes(ALL) ? "lifestyle" : (query.categories?.[0] ?? "lifestyle")),
@@ -103,18 +116,29 @@ export type ApifyRun = {
   datasetId: string;
   stage: ApifyStage;
   geo?: Record<string, GeoHint>;
-  /** Candidates waiting for a later profile round. */
-  queue?: string[];
+  /** Every username ever queued, in the order they will be read. */
+  seen?: string[];
+  /** How far into `seen` the profile rounds have got. */
+  cursor?: number;
+  stats?: CrawlStats;
+};
+
+/** Numbers behind the funnel, so a thin result set can be explained. */
+export type CrawlStats = {
+  posts: number;
+  candidates: number;
+  profiles: number;
+  inBand: number;
 };
 
 /** How many hashtag posts to scan for candidates before fetching their profiles. */
-const CANDIDATE_POOL = Number(process.env.APIFY_CANDIDATE_POOL ?? 20000);
+const CANDIDATE_POOL = Number(process.env.APIFY_CANDIDATE_POOL ?? 30000);
 
-/** How many profiles to read in total across all rounds. */
-const PROFILE_BUDGET = Number(process.env.APIFY_PROFILE_BUDGET ?? 6000);
+/** Ceiling on the crawl: hashtag candidates plus everything it snowballs into. */
+const PROFILE_BUDGET = Number(process.env.APIFY_PROFILE_BUDGET ?? 10000);
 
 /** Profiles per round: small enough that a round finishes in a minute or so. */
-const PROFILE_BATCH = Number(process.env.APIFY_PROFILE_BATCH ?? 250);
+const PROFILE_BATCH = Number(process.env.APIFY_PROFILE_BATCH ?? 400);
 
 /** Keeps every call well inside a serverless function's time limit. */
 async function apifyFetch(url: string, init?: RequestInit): Promise<Response> {
@@ -226,6 +250,7 @@ export type RunStatus =
       scanned: number;
       matched: number;
       confirmed?: number;
+      stats?: CrawlStats;
     }
   | { status: "failed"; detail: string };
 
@@ -315,17 +340,38 @@ export async function pollApifyRun(run: ApifyRun, query: SearchQuery): Promise<R
     }
     // Profiles are read in rounds so no single Apify run runs for ages.
     const batch = capped.slice(0, PROFILE_BATCH);
-    const queue = capped.slice(PROFILE_BATCH);
     return {
       status: "running",
-      run: { ...(await startDetailsRun(batch)), geo, queue },
+      run: {
+        ...(await startDetailsRun(batch)),
+        geo,
+        seen: capped,
+        cursor: batch.length,
+        stats: { posts: posts.length, candidates: capped.length, profiles: 0, inBand: 0 },
+      },
       scanned: capped.length,
     };
   }
 
   const items = await datasetItems<ApifyItem>(run.datasetId, PROFILE_BATCH * 2);
-  const hints = run.geo ?? {};
+  const hints = { ...(run.geo ?? {}) };
+  const wanted = query.countries.includes(ALL) ? [] : query.countries;
+
+  // Geotags only cover the creators who tag their posts. The bio names a place
+  // far more often ("📍NY", "Los Angeles | Dallas"), so it is read as a second
+  // source: it confirms a candidate, or rules one out as clearly elsewhere.
+  const ruledOut = new Set<string>();
+  for (const item of items) {
+    const name = item.username;
+    if (!name || hints[name] || wanted.length === 0) continue;
+    const found = placeInText(item.biography);
+    if (!found) continue;
+    if (wanted.includes(found.code)) hints[name] = found;
+    else ruledOut.add(name);
+  }
+
   const all = items
+    .filter((item) => !ruledOut.has(item.username ?? ""))
     .map((item) => toInfluencer(item, query, "apify", hints[item.username ?? ""]))
     .filter((i): i is Influencer => i !== null);
   const matched = all
@@ -334,32 +380,62 @@ export async function pollApifyRun(run: ApifyRun, query: SearchQuery): Promise<R
     .sort((a, b) => b.followers - a.followers);
 
   // With a geo chosen, a confirmed location outranks a guess.
-  const wanted = query.countries.includes(ALL) ? [] : query.countries;
   const ranked = wanted.length
     ? [...matched].sort((a, b) => Number(Boolean(b.city)) - Number(Boolean(a.city)))
     : matched;
 
+  // Hashtags alone run dry fast. Every account that lands in the follower band
+  // is a seed: Instagram's own "related profiles" for it are overwhelmingly
+  // accounts of the same size, niche and country, so the crawl snowballs.
+  const seen = [...(run.seen ?? [])];
+  const known = new Set(seen);
+  const inBand = new Set(matched.map((i) => i.username));
+  for (const item of items) {
+    if (seen.length >= PROFILE_BUDGET) break;
+    if (!item.username || !inBand.has(item.username)) continue;
+    for (const related of item.relatedProfiles ?? []) {
+      const name = related.username;
+      if (!name || known.has(name) || seen.length >= PROFILE_BUDGET) continue;
+      known.add(name);
+      seen.push(name);
+    }
+  }
+
+  const before = run.stats ?? { posts: 0, candidates: 0, profiles: 0, inBand: 0 };
+  const stats: CrawlStats = {
+    posts: before.posts,
+    candidates: seen.length,
+    profiles: before.profiles + items.length,
+    inBand: before.inBand + matched.length,
+  };
+
   // More candidates waiting? Hand back this round's results and start the next.
-  const queue = run.queue ?? [];
-  if (queue.length > 0) {
-    const batch = queue.slice(0, PROFILE_BATCH);
+  const cursor = run.cursor ?? seen.length;
+  const batch = seen.slice(cursor, cursor + PROFILE_BATCH);
+  if (batch.length > 0) {
     return {
       status: "running",
-      run: { ...(await startDetailsRun(batch)), geo: hints, queue: queue.slice(PROFILE_BATCH) },
+      run: {
+        ...(await startDetailsRun(batch)),
+        geo: hints,
+        seen,
+        cursor: cursor + batch.length,
+        stats,
+      },
       influencers: ranked,
-      scanned: all.length,
+      scanned: stats.profiles,
     };
   }
 
   return {
     status: "done",
     influencers: ranked,
-    scanned: all.length,
-    matched: matched.length,
+    scanned: stats.profiles,
+    matched: stats.inBand,
     confirmed: ranked.filter((i) => i.city).length,
+    stats,
   };
 }
-
 function shapeApifyItems(items: ApifyItem[], query: SearchQuery): Influencer[] {
   return items
     .map((item) => toInfluencer(item, query, "apify"))

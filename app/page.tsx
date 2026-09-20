@@ -351,12 +351,15 @@ export default function Page() {
       setOnlySelected(false);
 
       // Apify keeps scraping after the request returns, so poll until it settles.
-      const deadline = Date.now() + 60 * 60 * 1000;
+      const deadline = Date.now() + 3 * 60 * 60 * 1000;
       while (data.status === "running" && Date.now() < deadline) {
         collect(data);
         setInfluencers([...byId.values()]);
+        const seenSoFar = Number(data.scanned ?? 0);
         setNotice(
-          byId.size > 0 ? t.discover.foundSoFar(byId.size) : t.discover.stillRunning,
+          byId.size > 0
+            ? t.discover.foundSoFar(byId.size, seenSoFar)
+            : t.discover.stillRunning,
         );
         await new Promise((resolve) => setTimeout(resolve, 4000));
         data = await ask({
@@ -364,7 +367,9 @@ export default function Page() {
           datasetId: String(data.datasetId),
           stage: String(data.stage ?? "discover"),
           geo: data.geo,
-          queue: data.queue,
+          seen: data.seen,
+          cursor: data.cursor,
+          stats: data.stats,
         });
       }
 
@@ -376,15 +381,14 @@ export default function Page() {
       const found = [...byId.values()].sort((a, b) => b.followers - a.followers);
       setInfluencers(found);
       // Say how wide the net was, so a small result set is explainable.
-      const scanned = data.scanned as number | undefined;
-      const confirmed = data.confirmed as number | undefined;
+      const stats = data.stats as
+        | { posts: number; candidates: number; profiles: number; inBand: number }
+        | undefined;
       setNotice(
         (data.notice as string) ??
-          (scanned && found.length < 5
-            ? t.discover.scanned(scanned, found.length)
-            : scanned && confirmed !== undefined
-              ? t.discover.geoConfirmed(confirmed, found.length)
-              : null),
+          (stats
+            ? t.discover.funnel(stats.posts, stats.candidates, stats.profiles, found.length)
+            : null),
       );
       setView("discover");
     } catch (error) {

@@ -6,7 +6,7 @@ import { COUNTRIES, countryByCode } from "./countries";
  * so a post tagged "Chicago, Illinois" is still recognised as the US.
  */
 const EXTRA: Record<string, string[]> = {
-  US: ["usa", "u.s.", "united states of america", "america", "chicago", "houston", "san francisco", "seattle", "boston", "atlanta", "dallas", "phoenix", "denver", "las vegas", "san diego", "philadelphia", "california", "texas", "florida", "new jersey", "illinois", "nevada", "arizona", "georgia", "washington"],
+  US: ["usa", "u.s.", "nyc", "ny", "brooklyn", "manhattan", "nashville", "portland", "orlando", "tampa", "charlotte", "detroit", "minneapolis", "san antonio", "sacramento", "columbus", "indianapolis", "kansas city", "st louis", "pittsburgh", "cleveland", "salt lake city", "new orleans", "oklahoma city", "raleigh", "orange county", "bay area", "socal", "north carolina", "ohio", "michigan", "colorado", "utah", "oregon", "tennessee", "virginia", "maryland", "massachusetts", "minnesota", "missouri", "wisconsin", "indiana", "alabama", "louisiana", "kentucky", "connecticut", "oklahoma", "kansas", "iowa", "arkansas", "mississippi", "nebraska", "idaho", "hawaii", "alaska", "maine", "united states of america", "america", "chicago", "houston", "san francisco", "seattle", "boston", "atlanta", "dallas", "phoenix", "denver", "las vegas", "san diego", "philadelphia", "california", "texas", "florida", "new jersey", "illinois", "nevada", "arizona", "georgia", "washington"],
   GB: ["uk", "u.k.", "united kingdom", "england", "scotland", "wales", "birmingham", "leeds", "liverpool", "glasgow", "edinburgh"],
   DE: ["deutschland", "cologne", "köln", "frankfurt", "stuttgart", "düsseldorf", "dusseldorf"],
   FR: ["france", "nice", "toulouse", "bordeaux", "nantes"],
@@ -67,6 +67,52 @@ export function countryOfLocation(location: string | undefined): string | null {
     }
   }
   return null;
+}
+
+/**
+ * The first place named anywhere in a free text such as a bio. Creators say
+ * where they are far more often than they geotag posts: "📍NY", "Based in
+ * Los Angeles", "Dallas | New York".
+ */
+export function placeInText(text: string | undefined): { code: string; place: string } | null {
+  if (!text) return null;
+  const lower = text.toLowerCase();
+
+
+  let best: { code: string; place: string; at: number } | null = null;
+  for (const country of COUNTRIES) {
+    for (const needle of needles(country.code)) {
+      const pattern = new RegExp(
+        `(^|[^\\p{L}])(${needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})([^\\p{L}]|$)`,
+        "iu",
+      );
+      const hit = pattern.exec(lower);
+      if (!hit) continue;
+      const at = hit.index;
+      // The earliest mention wins: a bio leads with where the creator lives.
+      if (!best || at < best.at) {
+        best = { code: country.code, place: title(hit[2]), at };
+      }
+    }
+  }
+  if (best) return { code: best.code, place: best.place };
+
+  // A flag emoji is the plainest statement of where someone is, and it works
+  // for every country without a word list.
+  const flag = /[\u{1F1E6}-\u{1F1FF}]{2}/u.exec(text);
+  if (flag) {
+    const code = [...flag[0]]
+      .map((c) => String.fromCharCode(c.codePointAt(0)! - 0x1f1e6 + 65))
+      .join("");
+    const country = countryByCode(code);
+    if (country) return { code, place: country.name };
+  }
+
+  return null;
+}
+
+function title(value: string): string {
+  return value.replace(/\b\p{L}/gu, (c) => c.toUpperCase());
 }
 
 export type GeoVerdict = "match" | "other" | "unknown";

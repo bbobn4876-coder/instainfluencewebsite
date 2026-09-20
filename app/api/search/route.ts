@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { activeProvider, pollApifyRun, searchInfluencers, startApifyRun } from "@/lib/providers";
+import type { CrawlStats } from "@/lib/providers";
 import { ALL, countryByCode } from "@/lib/countries";
 import { requireUser } from "@/lib/session";
 import type { SearchQuery } from "@/lib/types";
@@ -15,7 +16,9 @@ export async function POST(request: Request) {
     datasetId?: string;
     stage?: string;
     geo?: unknown;
-    queue?: unknown;
+    seen?: unknown;
+    cursor?: unknown;
+    stats?: unknown;
   };
   try {
     payload = await request.json();
@@ -57,7 +60,9 @@ export async function POST(request: Request) {
             datasetId: payload.datasetId,
             stage: payload.stage === "details" ? ("details" as const) : ("discover" as const),
             geo: (payload.geo ?? {}) as Record<string, { code: string; place: string }>,
-            queue: Array.isArray(payload.queue) ? payload.queue.map(String) : [],
+            seen: Array.isArray(payload.seen) ? payload.seen.map(String) : [],
+            cursor: Number.isFinite(payload.cursor) ? Number(payload.cursor) : 0,
+            stats: (payload.stats ?? undefined) as CrawlStats | undefined,
           }
         : null;
 
@@ -89,6 +94,7 @@ export async function POST(request: Request) {
         scanned: state.scanned,
         matched: state.matched,
         confirmed: state.confirmed,
+        stats: state.stats,
       });
     } catch (error) {
       // A broken token or a network problem should not leave the page empty.
