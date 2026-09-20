@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { searchInfluencers } from "@/lib/providers";
-import { countryByCode } from "@/lib/countries";
+import { ALL, countryByCode } from "@/lib/countries";
 import type { SearchQuery } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -13,17 +13,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const requested = Array.isArray(payload.countries) ? payload.countries : [];
-  const countries = [...new Set(requested.map((c) => String(c).toUpperCase()))].filter((code) =>
-    countryByCode(code),
-  );
+  const requested = [...new Set((Array.isArray(payload.countries) ? payload.countries : []).map(
+    (c) => String(c).toUpperCase(),
+  ))];
+  const countries = requested.includes(ALL)
+    ? [ALL]
+    : requested.filter((code) => countryByCode(code));
   if (countries.length === 0) {
     return NextResponse.json({ error: "Pick at least one known country." }, { status: 400 });
   }
 
-  const categories = Array.isArray(payload.categories)
-    ? [...new Set(payload.categories.map((c) => String(c)))]
-    : [];
+  const requestedCategories = [...new Set(
+    (Array.isArray(payload.categories) ? payload.categories : []).map((c) => String(c)),
+  )];
+  const categories = requestedCategories.includes(ALL) ? [ALL] : requestedCategories;
 
   const query: SearchQuery = {
     countries,

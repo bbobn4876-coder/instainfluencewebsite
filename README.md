@@ -38,8 +38,10 @@ npm run dev                  # http://localhost:3000
 | `Alt` + `1` … `6` | Same, and works while a field has focus |
 | `⌘/Ctrl` + `B`, `[` | Collapse the sidebar to icons (remembered between visits); hovering the logo shows the same toggle |
 
-Geo and niche both take several values at once — the search spreads its result limit across
-every country/niche combination and merges the results by follower count.
+Geo and niche both take several values at once, or **All**, which drops that constraint
+entirely. The search spreads its result limit across every country/niche combination and merges
+the results by follower count; with All selected the term is left out of the provider query, so
+the Apify actor gets a short search string instead of dozens of joined keywords.
 
 ### Data sources
 

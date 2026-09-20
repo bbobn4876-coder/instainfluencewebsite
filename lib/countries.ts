@@ -71,6 +71,9 @@ export const CATEGORIES = [
   "lifestyle",
 ];
 
+/** Sentinel meaning "do not constrain the search" for geo and niche alike. */
+export const ALL = "ALL";
+
 export function countryByCode(code: string): Country | undefined {
   return COUNTRIES.find((c) => c.code === code.toUpperCase());
 }

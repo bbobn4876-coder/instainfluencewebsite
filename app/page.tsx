@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CATEGORIES, COUNTRIES } from "@/lib/countries";
+import { ALL, CATEGORIES, COUNTRIES } from "@/lib/countries";
 import { dict, type Language } from "@/lib/i18n";
 import { MAIL_PROVIDERS, guessProvider, providerById } from "@/lib/mailProviders";
 import Select from "./Select";
@@ -904,13 +904,16 @@ export default function Page() {
                     summary={t.discover.chosen}
                     searchPlaceholder={t.discover.searchPlaceholder}
                     emptyLabel={t.discover.nothingFound}
-                    options={[...COUNTRIES]
-                      .sort((a, b) => a.name.localeCompare(b.name))
-                      .map((c) => ({
-                        value: c.code,
-                        label: `${c.flag} ${c.name}`,
-                        hint: c.code,
-                      }))}
+                    options={[
+                      { value: ALL, label: t.discover.all, exclusive: true },
+                      ...[...COUNTRIES]
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .map((c) => ({
+                          value: c.code,
+                          label: `${c.flag} ${c.name}`,
+                          hint: c.code,
+                        })),
+                    ]}
                   />
                 </div>
                 <div className="field">
@@ -922,7 +925,10 @@ export default function Page() {
                     summary={t.discover.chosen}
                     searchPlaceholder={t.discover.searchPlaceholder}
                     emptyLabel={t.discover.nothingFound}
-                    options={CATEGORIES.map((c) => ({ value: c, label: c }))}
+                    options={[
+                      { value: ALL, label: t.discover.all, exclusive: true },
+                      ...CATEGORIES.map((c) => ({ value: c, label: c })),
+                    ]}
                   />
                 </div>
                 <label className="field">

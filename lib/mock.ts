@@ -1,4 +1,4 @@
-import { countryByCode } from "./countries";
+import { ALL, CATEGORIES, COUNTRIES, countryByCode } from "./countries";
 import { extractEmails, extractLinks, extractPhones } from "./contacts";
 import type { Influencer, SearchQuery } from "./types";
 
@@ -138,23 +138,37 @@ function mockSearchOne(
 
 /** Spreads the requested limit across every country/niche combination. */
 export function mockSearch(query: SearchQuery): Influencer[] {
-  const countries = query.countries.filter((code) => countryByCode(code));
-  const categories = query.categories?.length ? query.categories : ["lifestyle"];
+  const countries = query.countries.includes(ALL)
+    ? COUNTRIES.map((c) => c.code)
+    : query.countries.filter((code) => countryByCode(code));
+  const categories = query.categories?.includes(ALL)
+    ? [...CATEGORIES]
+    : query.categories?.length
+      ? query.categories
+      : ["lifestyle"];
   if (countries.length === 0) return [];
 
   const total = Math.min(query.limit ?? 24, 120);
-  const combos = countries.length * categories.length;
-  const perCombo = Math.max(2, Math.ceil(total / combos));
+
+  let combos: Array<[string, string]> = [];
+  for (const code of countries) {
+    for (const category of categories) combos.push([code, category]);
+  }
+  // With "all" selected the grid is far larger than the result limit, so take a
+  // deterministic slice of it instead of generating thousands of profiles.
+  if (combos.length > total) {
+    const step = combos.length / total;
+    combos = Array.from({ length: total }, (_, i) => combos[Math.floor(i * step)]);
+  }
+  const perCombo = Math.max(1, Math.ceil(total / combos.length));
 
   const seen = new Set<string>();
   const merged: Influencer[] = [];
-  for (const code of countries) {
-    for (const category of categories) {
-      for (const influencer of mockSearchOne(code, category, query, perCombo)) {
-        if (seen.has(influencer.username)) continue;
-        seen.add(influencer.username);
-        merged.push(influencer);
-      }
+  for (const [code, category] of combos) {
+    for (const influencer of mockSearchOne(code, category, query, perCombo)) {
+      if (seen.has(influencer.username)) continue;
+      seen.add(influencer.username);
+      merged.push(influencer);
     }
   }
 

@@ -2,7 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-export type SelectOption = { value: string; label: string; hint?: string };
+export type SelectOption = {
+  value: string;
+  label: string;
+  hint?: string;
+  /** Picking this clears every other option, and vice versa. */
+  exclusive?: boolean;
+};
 
 type Props = {
   /** One value, or several when `multiple` is set. */
@@ -73,10 +79,16 @@ export default function Select({
       setOpen(false);
       return;
     }
+    if (option.exclusive) {
+      onChange([option.value]);
+      setOpen(false);
+      return;
+    }
+    const exclusives = options.filter((o) => o.exclusive).map((o) => o.value);
     // Keep at least one option picked so a search always has a target.
     const next = value.includes(option.value)
       ? value.filter((v) => v !== option.value)
-      : [...value, option.value];
+      : [...value.filter((v) => !exclusives.includes(v)), option.value];
     onChange(next.length > 0 ? next : [option.value]);
   };
 

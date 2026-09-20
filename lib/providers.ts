@@ -1,3 +1,4 @@
+import { ALL } from "./countries";
 import { extractEmails, extractLinks, extractPhones } from "./contacts";
 import { mockSearch } from "./mock";
 import type { Influencer, SearchQuery } from "./types";
@@ -33,8 +34,10 @@ function toInfluencer(item: ApifyItem, query: SearchQuery, source: Influencer["s
     biography: bio,
     followers: item.followersCount ?? 0,
     engagementRate: 0,
-    country: query.countries[0] ?? "",
-    category: item.businessCategoryName ?? query.categories?.[0] ?? "lifestyle",
+    country: query.countries.includes(ALL) ? "" : (query.countries[0] ?? ""),
+    category:
+      item.businessCategoryName ??
+      (query.categories?.includes(ALL) ? "lifestyle" : (query.categories?.[0] ?? "lifestyle")),
     avatarUrl: item.profilePicUrl,
     profileUrl: `https://instagram.com/${item.username}`,
     emails: extractEmails(bio, item.businessEmail),
@@ -52,9 +55,10 @@ async function apifySearch(query: SearchQuery): Promise<Influencer[]> {
   const token = process.env.APIFY_TOKEN!;
   const actor = process.env.APIFY_ACTOR_ID ?? "apify~instagram-scraper";
   const limit = Math.min(query.limit ?? 24, 100);
-  const terms = [query.keyword, ...(query.categories ?? []), ...query.countries]
-    .filter(Boolean)
-    .join(" ");
+  // "all" contributes no search term, which keeps the actor's query short.
+  const geoTerms = query.countries.includes(ALL) ? [] : query.countries;
+  const nicheTerms = query.categories?.includes(ALL) ? [] : (query.categories ?? []);
+  const terms = [query.keyword, ...nicheTerms, ...geoTerms].filter(Boolean).join(" ");
 
   const res = await fetch(
     `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${encodeURIComponent(token)}`,
