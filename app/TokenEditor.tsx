@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useRef, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { tokenPattern } from "@/lib/tokens";
+
+const WAVE_MS = 340;
+const WAVE_STEP_MS = 38;
 
 type Props = {
   value: string;
@@ -24,6 +27,11 @@ export default function TokenEditor({
 }: Props) {
   const inputRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
   const mirrorRef = useRef<HTMLDivElement>(null);
+  // Letters are split into boxes only while the wave runs; once it finishes the
+  // word goes back to plain text so the mirror matches the input exactly.
+  const [waving, setWaving] = useState<string[]>([]);
+  const known = useRef(new Set<string>());
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   const syncScroll = () => {
     if (mirrorRef.current && inputRef.current) {
@@ -33,6 +41,13 @@ export default function TokenEditor({
   };
 
   useEffect(syncScroll, [value]);
+
+  useEffect(
+    () => () => {
+      timers.current.forEach((timer) => clearTimeout(timer));
+    },
+    [],
+  );
 
 
   // Keys stay stable per token occurrence, so a mark is not re-mounted (and its
@@ -52,6 +67,23 @@ export default function TokenEditor({
   }
   parts.push({ text: value.slice(last), key: "tail", token: false });
 
+  // Start the wave for words that have just become tokens, and forget the ones
+  // that were edited away so retyping them animates again.
+  const present = new Set(parts.filter((part) => part.token).map((part) => part.key));
+  for (const key of present) {
+    if (known.current.has(key)) continue;
+    known.current.add(key);
+    setWaving((prev) => (prev.includes(key) ? prev : [...prev, key]));
+    const timer = setTimeout(() => {
+      setWaving((prev) => prev.filter((k) => k !== key));
+      timers.current.delete(key);
+    }, WAVE_MS + WAVE_STEP_MS * 12);
+    timers.current.set(key, timer);
+  }
+  for (const key of known.current) {
+    if (!present.has(key)) known.current.delete(key);
+  }
+
   const shared: CSSProperties = singleLine ? {} : { minHeight: `${rows * 1.6}em` };
 
   return (
@@ -60,7 +92,17 @@ export default function TokenEditor({
         {parts.map((part) =>
           part.token ? (
             <mark className="token" key={part.key}>
-              {part.text}
+              {waving.includes(part.key)
+                ? [...part.text].map((letter, i) => (
+                    <span
+                      className="token-letter"
+                      key={i}
+                      style={{ animationDelay: `${i * WAVE_STEP_MS}ms` }}
+                    >
+                      {letter}
+                    </span>
+                  ))
+                : part.text}
             </mark>
           ) : (
             <span key={part.key}>{part.text}</span>

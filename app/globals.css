@@ -809,7 +809,7 @@ textarea {
   background-color: rgba(196, 44, 90, 0.92);
   color: #fff;
   font: inherit;
-  animation: token-in 0.32s cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation: token-in 0.34s cubic-bezier(0.22, 0.61, 0.36, 1);
   box-shadow:
     0 0 0 2px rgba(196, 44, 90, 0.92),
     0 0 16px rgba(196, 44, 90, 0.5);
@@ -837,8 +837,31 @@ textarea {
   }
 }
 
+/* Each letter lifts and lands in turn, left to right. */
+.token-letter {
+  display: inline-block;
+  animation: token-letter 340ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  transform-origin: 50% 85%;
+}
+
+@keyframes token-letter {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  45% {
+    transform: translateY(-2px) scale(1.22);
+  }
+  75% {
+    transform: translateY(0.5px) scale(0.97);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .token {
+  .token,
+  .token-letter {
     animation: none;
   }
 }
