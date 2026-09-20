@@ -6,16 +6,25 @@ import { dict, type Language } from "@/lib/i18n";
 import { MAIL_PROVIDERS, guessProvider, providerById } from "@/lib/mailProviders";
 import Select from "./Select";
 import ProfileModal from "./ProfileModal";
-import AuthModal from "./AuthModal";
+import AuthModal, { type AuthMode } from "./AuthModal";
 import TokenEditor from "./TokenEditor";
 import { TOKENS } from "@/lib/tokens";
 import type { PublicSettings } from "@/lib/settings";
 import type { InboxChannel, InboxMessage, ChannelStatus } from "@/lib/inbox";
 import type { Influencer, OutreachResult } from "@/lib/types";
 
-type View = "discover" | "compose" | "results" | "inbox" | "settings";
+type View = "home" | "discover" | "compose" | "results" | "inbox" | "settings";
 
 const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
+  {
+    id: "home",
+    hotkey: "0",
+    icon: (
+      <svg viewBox="0 0 20 20" aria-hidden>
+        <path d="M3.5 9L10 3.5 16.5 9v7a1 1 0 01-1 1h-3v-5h-5v5h-3a1 1 0 01-1-1z" />
+      </svg>
+    ),
+  },
   {
     id: "discover",
     hotkey: "1",
@@ -81,7 +90,7 @@ function formatFollowers(n: number): string {
 }
 
 export default function Page() {
-  const [view, setView] = useState<View>("discover");
+  const [view, setView] = useState<View>("home");
   const [language, setLanguage] = useState<Language>("en");
   const t = dict(language);
 
@@ -121,8 +130,11 @@ export default function Page() {
   const [imapPassword, setImapPassword] = useState("");
 
   const [details, setDetails] = useState<Influencer | null>(null);
-  const [user, setUser] = useState<{ id: string; email: string } | null>(null);
-  const [authMode, setAuthMode] = useState<"signin" | "signup" | null>(null);
+  const [user, setUser] = useState<{ id: string; email: string; emailVerified: boolean } | null>(
+    null,
+  );
+  const [authMode, setAuthMode] = useState<AuthMode | null>(null);
+  const [resetToken, setResetToken] = useState<string | undefined>();
   const [banner, setBanner] = useState(false);
 
   const [collapsed, setCollapsed] = useState(false);
@@ -146,14 +158,56 @@ export default function Page() {
     } catch {
       /* storage can be blocked; the default stays expanded */
     }
+    const params = new URLSearchParams(window.location.search);
+    const verifyToken = params.get("verify");
+    const reset = params.get("reset");
+    const clearUrl = () => window.history.replaceState({}, "", window.location.pathname);
+
+    if (reset) {
+      setResetToken(reset);
+      setAuthMode("reset");
+      clearUrl();
+    }
+
+    if (verifyToken) {
+      clearUrl();
+      fetch("/api/auth", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "verify", token: verifyToken }),
+      })
+        .then(async (r) => ({ ok: r.ok, data: await r.json() }))
+        .then(({ ok, data }) => {
+          if (ok) {
+            setUser(data.user);
+            setNotice(dict(data.user?.language ?? "en").auth.verifyDone);
+            setView("discover");
+          } else {
+            setNotice(data.error ?? "This link is invalid or has expired.");
+          }
+        })
+        .catch(() => undefined);
+      return;
+    }
+
     fetch("/api/auth")
       .then((r) => r.json())
       .then((data) => setUser(data.user ?? null))
       .catch(() => undefined);
   }, []);
 
+  const resendVerification = useCallback(async () => {
+    const res = await fetch("/api/auth", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "resend" }),
+    });
+    const data = await res.json();
+    setNotice(data.sent ? t.auth.verifySent : (data.link ?? t.auth.linkFallback));
+  }, [t]);
+
   useEffect(() => {
-    if (!user) {
+    if (!user?.emailVerified) {
       setSettings(EMPTY_SETTINGS);
       return;
     }
@@ -279,6 +333,10 @@ export default function Page() {
       setAuthMode("signin");
       return;
     }
+    if (!user.emailVerified) {
+      setView("home");
+      return;
+    }
     setLoading(true);
     setNotice(null);
     try {
@@ -317,6 +375,10 @@ export default function Page() {
       setAuthMode("signin");
       return;
     }
+    if (!user.emailVerified) {
+      setView("home");
+      return;
+    }
     if (selected.length === 0) return;
     setSending(true);
     setNotice(null);
@@ -340,6 +402,10 @@ export default function Page() {
   const loadInbox = useCallback(async () => {
     if (!user) {
       setAuthMode("signin");
+      return;
+    }
+    if (!user.emailVerified) {
+      setView("home");
       return;
     }
     setInboxLoading(true);
@@ -366,6 +432,10 @@ export default function Page() {
   const saveSettings = useCallback(async () => {
     if (!user) {
       setAuthMode("signin");
+      return;
+    }
+    if (!user.emailVerified) {
+      setView("home");
       return;
     }
     setSavingSettings(true);
@@ -422,6 +492,10 @@ export default function Page() {
   const testEmail = useCallback(async () => {
     if (!user) {
       setAuthMode("signin");
+      return;
+    }
+    if (!user.emailVerified) {
+      setView("home");
       return;
     }
     setTesting(true);
@@ -492,6 +566,7 @@ export default function Page() {
     setSettings((prev) => ({ ...prev, accounts: { ...prev.accounts, [key]: value } }));
 
   const counts: Record<View, number | undefined> = {
+    home: undefined,
     discover: influencers.length || undefined,
     compose: undefined,
     results: results.length || undefined,
@@ -702,7 +777,7 @@ export default function Page() {
       </aside>
 
       <main className="main">
-        <div className="auth-bar" data-open={!user && banner} aria-hidden={!(!user && banner)}>
+        <div className="auth-bar" data-open={!user && banner && view !== "home"} aria-hidden={!(!user && banner)}>
           <span>{t.auth.banner}</span>
           <button className="btn" onClick={() => setAuthMode("signin")}>
             {t.auth.bannerAction}
@@ -715,7 +790,50 @@ export default function Page() {
         <div className="content" key={view} onScroll={onContentScroll}>
           {notice ? <div className="notice">{notice}</div> : null}
 
-          {!user ? (
+          {view === "home" ? (
+            <div className="home">
+              <div className="home-hero">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img className="home-mark" src="/iconinfluence.png" alt="" />
+                <h1 className="home-title">{t.home.title}</h1>
+                <p className="home-tagline">{t.home.tagline}</p>
+                {user ? null : (
+                  <div className="locked-actions">
+                    <button className="btn" onClick={() => setAuthMode("signup")}>
+                      {t.home.cta}
+                    </button>
+                    <button className="btn btn-ghost" onClick={() => setAuthMode("signin")}>
+                      {t.home.ctaSignIn}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {user && !user.emailVerified ? (
+                <div className="locked">
+                  <h2 className="locked-title">{t.auth.verifyTitle}</h2>
+                  <p className="locked-body">{t.auth.verifyBody(user.email)}</p>
+                  <div className="locked-actions">
+                    <button className="btn" onClick={resendVerification}>
+                      {t.auth.verifyResend}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              <h2 className="home-section">{t.home.featuresTitle}</h2>
+              <div className="home-features">
+                {t.home.features.map((feature) => (
+                  <article className="home-feature" key={feature.title}>
+                    <h3 className="home-feature-title">{feature.title}</h3>
+                    <p className="home-feature-body">{feature.body}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {!user && view !== "home" ? (
             <div className="locked">
               <h2 className="locked-title">{t.auth.lockedTitle}</h2>
               <p className="locked-body">{t.auth.lockedBody}</p>
@@ -730,7 +848,19 @@ export default function Page() {
             </div>
           ) : null}
 
-          {user && view === "discover" ? (
+          {user && !user.emailVerified && view !== "home" ? (
+            <div className="locked">
+              <h2 className="locked-title">{t.auth.verifyTitle}</h2>
+              <p className="locked-body">{t.auth.verifyBody(user.email)}</p>
+              <div className="locked-actions">
+                <button className="btn" onClick={resendVerification}>
+                  {t.auth.verifyResend}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {user?.emailVerified && view === "discover" ? (
             <>
               <h1 className="view-title">{t.discover.title}</h1>
               <p className="view-sub">{t.discover.sub}</p>
@@ -777,7 +907,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {user && view === "compose" ? (
+          {user?.emailVerified && view === "compose" ? (
             <>
               <h1 className="view-title">{t.compose.title}</h1>
               <p className="view-sub">
@@ -830,7 +960,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {user && view === "results" ? (
+          {user?.emailVerified && view === "results" ? (
             <>
               <h1 className="view-title">{t.results.title}</h1>
               <p className="view-sub">
@@ -907,7 +1037,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {user && view === "inbox" ? (
+          {user?.emailVerified && view === "inbox" ? (
             <>
               <h1 className="view-title">{t.inbox.title}</h1>
               <p className="view-sub">{t.inbox.sub}</p>
@@ -979,7 +1109,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {user && view === "settings" ? (
+          {user?.emailVerified && view === "settings" ? (
             <>
               <h1 className="view-title">{t.settings.title}</h1>
               <p className="view-sub">{t.settings.sub}</p>
@@ -1321,7 +1451,7 @@ export default function Page() {
 
         {foldableDock ? (
           <div className="dock-mini" data-open={dockCompact} aria-hidden={!dockCompact}>
-            {user && view === "settings" ? (
+            {user?.emailVerified && view === "settings" ? (
               <>
                 <button
                   className="mini-button"
@@ -1395,12 +1525,15 @@ export default function Page() {
       {authMode ? (
         <AuthModal
           mode={authMode}
+          token={resetToken}
           onMode={setAuthMode}
           onClose={() => setAuthMode(null)}
           onDone={(signedIn) => {
             setUser(signedIn);
             setAuthMode(null);
-            setNotice(null);
+            setResetToken(undefined);
+            setNotice(signedIn.emailVerified ? null : t.auth.verifyBody(signedIn.email));
+            setView(signedIn.emailVerified ? "discover" : "home");
           }}
           labels={{ ...t.auth, close: t.discover.close }}
         />

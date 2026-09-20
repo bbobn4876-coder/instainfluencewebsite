@@ -17,5 +17,13 @@ export async function requireUser(): Promise<
       response: NextResponse.json({ error: "Sign in to use this feature." }, { status: 401 }),
     };
   }
+  if (!user.emailVerified) {
+    return {
+      response: NextResponse.json(
+        { error: "Confirm your email address first — check your inbox for the link.", needsVerification: true },
+        { status: 403 },
+      ),
+    };
+  }
   return { user };
 }

@@ -12,6 +12,14 @@ control docked at the bottom.
 The app is account-based: nothing works until you sign up. The **Sign in / Sign up** button sits
 at the bottom of the sidebar, and a reminder bar appears at the top of the page while signed out.
 
+A new account has to confirm its address before anything unlocks: signing up emails a link that
+is valid for 24 hours, and **Send it again** reissues it. **Forgot your password?** on the sign-in
+screen emails a one-hour link that signs you in on the new password. Both letters go through the
+platform mailbox (`SYSTEM_SMTP_*`); when that is not configured the link is written to the server
+log instead, so a local instance still works. Tokens are stored as SHA-256 hashes, one live token
+per purpose, and are consumed on use. Asking for a reset answers the same way whether or not the
+address has an account.
+
 Accounts live in `.data/users.json` with scrypt-hashed passwords, and each account keeps its own
 mail credentials, social handles and language in `.data/users/<id>.json`, so replies come back to
 whoever connected the mailbox. Sessions are HMAC-signed cookies (HttpOnly, 30 days); set
@@ -38,7 +46,8 @@ npm run dev                  # http://localhost:3000
 | Account settings | `lib/settings.ts`, `app/api/settings` | Per-user sender account, handles, language |
 | Translations | `lib/i18n.ts` | EN/RU strings |
 | API | `app/api/search`, `app/api/outreach` | JSON endpoints used by the UI |
-| UI | `app/page.tsx`, `app/globals.css` | Discover · Compose · Results · Inbox · Settings |
+| UI | `app/page.tsx`, `app/globals.css` | Home · Discover · Compose · Results · Inbox · Settings |
+| Mail links | `lib/authTokens.ts`, `lib/systemMail.ts` | Confirmation and reset tokens, platform mailbox |
 | Profile popup | `app/ProfileModal.tsx` | Avatar, full bio, contacts and links for one account |
 | Dropdowns | `app/Select.tsx` | Searchable single/multi select used for geo and niche |
 
@@ -62,8 +71,8 @@ to one column, and result rows stack instead of squeezing four columns onto a ph
 
 | Key | Action |
 | --- | --- |
-| `1` … `5` | Switch between Discover, Compose, Results, Inbox and Settings |
-| `Alt` + `1` … `5` | Same, and works while a field has focus |
+| `0` … `5` | Switch between Home, Discover, Compose, Results, Inbox and Settings |
+| `Alt` + `0` … `5` | Same, and works while a field has focus |
 | `⌘/Ctrl` + `B`, `[` | Collapse the sidebar to icons (remembered between visits); hovering the logo shows the same toggle |
 
 Geo and niche both take several values at once, or **All**, which drops that constraint
