@@ -59,6 +59,10 @@ password — SMTP and IMAP hosts, ports and logins are filled in from the preset
 known address picks the provider by itself. Hosts stay editable under **Advanced**. The social
 handles you write from, the Telegram bot token and the interface language (EN/RU) live here too.
 
+There is no user login — the app is single-tenant and runs on your own server — so instead of a
+sign-out there is **Disconnect account**, which wipes the saved mail credentials, handles and bot
+token from `.data/settings.json`.
+
 Settings are written to `.data/settings.json` (mode 600, git-ignored) on the server running the
 app; override the location with `DATA_DIR`. The password is never sent back to the browser — the
 UI only learns whether one is stored. The `SMTP_*` env vars still work as defaults when nothing

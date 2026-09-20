@@ -55,3 +55,17 @@ export async function POST(request: Request) {
   await writeSettings(next);
   return NextResponse.json(toPublicSettings(next));
 }
+
+/** Disconnects every saved account, keeping only the chosen language. */
+export async function DELETE() {
+  const current = await readSettings();
+  const cleared: AppSettings = {
+    language: current.language,
+    email: { host: "", port: 587, user: "", pass: "", from: "", replyTo: "" },
+    imap: { host: "", port: 993, user: "", pass: "" },
+    accounts: { instagram: "", telegram: "", tiktok: "", youtube: "", website: "" },
+    telegramBotToken: "",
+  };
+  await writeSettings(cleared);
+  return NextResponse.json(toPublicSettings(cleared));
+}

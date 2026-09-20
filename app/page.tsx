@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CATEGORIES, COUNTRIES } from "@/lib/countries";
 import { dict, type Language } from "@/lib/i18n";
 import { MAIL_PROVIDERS, guessProvider, providerById } from "@/lib/mailProviders";
+import Select from "./Select";
 import type { PublicSettings } from "@/lib/settings";
 import type { InboxChannel, InboxMessage, ChannelStatus } from "@/lib/inbox";
 import type { Influencer, OutreachResult } from "@/lib/types";
@@ -62,9 +63,9 @@ const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
     id: "settings",
     hotkey: "6",
     icon: (
-      <svg viewBox="0 0 20 20" aria-hidden>
-        <circle cx="10" cy="10" r="2.6" />
-        <path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M15.3 4.7l-1.4 1.4M6.1 13.9l-1.4 1.4" />
+      <svg viewBox="0 0 24 24" aria-hidden>
+        <circle cx="12" cy="12" r="3.1" />
+        <path d="M19.4 14.5a1.6 1.6 0 00.3 1.8l.1.1a1.9 1.9 0 11-2.7 2.7l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5v.2a1.9 1.9 0 11-3.8 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1a1.9 1.9 0 11-2.7-2.7l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3.4a1.9 1.9 0 110-3.8h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8l-.1-.1a1.9 1.9 0 112.7-2.7l.1.1a1.6 1.6 0 001.8.3h.1a1.6 1.6 0 001-1.5V3.4a1.9 1.9 0 113.8 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a1.9 1.9 0 112.7 2.7l-.1.1a1.6 1.6 0 00-.3 1.8v.1a1.6 1.6 0 001.5 1h.2a1.9 1.9 0 110 3.8h-.1a1.6 1.6 0 00-1.5 1z" />
       </svg>
     ),
   },
@@ -292,6 +293,29 @@ export default function Page() {
       setSavingSettings(false);
     }
   }, [language, settings, password, imapPassword, telegramBot, t]);
+
+  const disconnect = useCallback(async () => {
+    if (!window.confirm(t.settings.disconnectConfirm)) return;
+    setSavingSettings(true);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/settings", { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not disconnect.");
+      setSettings(data);
+      setPassword("");
+      setImapPassword("");
+      setTelegramBot("");
+      setProviderId("custom");
+      setInbox([]);
+      setInboxLoaded(false);
+      setNotice(t.settings.disconnected);
+    } catch (error) {
+      setNotice((error as Error).message);
+    } finally {
+      setSavingSettings(false);
+    }
+  }, [t]);
 
   const testEmail = useCallback(async () => {
     setTesting(true);
@@ -782,6 +806,16 @@ export default function Page() {
                 </section>
 
                 <section className="panel">
+                  <h2 className="panel-title">{t.settings.disconnect}</h2>
+                  <p className="hint">{t.settings.disconnectHint}</p>
+                  <div className="panel-foot">
+                    <button className="btn btn-danger" onClick={disconnect} disabled={savingSettings}>
+                      {t.settings.disconnect}
+                    </button>
+                  </div>
+                </section>
+
+                <section className="panel">
                   <h2 className="panel-title">Telegram</h2>
                   <p className="hint">{t.settings.telegramBotHint}</p>
                   <div className="form-grid">
@@ -824,26 +858,30 @@ export default function Page() {
           {view === "discover" || view === "selected" ? (
             <>
               <div className="dock-fields">
-                <label className="field">
+                <div className="field">
                   {t.discover.geo}
-                  <select value={country} onChange={(e) => setCountry(e.target.value)}>
-                    {COUNTRIES.map((c) => (
-                      <option key={c.code} value={c.code}>
-                        {c.flag} {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field">
+                  <Select
+                    value={country}
+                    onChange={setCountry}
+                    searchPlaceholder={t.discover.searchPlaceholder}
+                    emptyLabel={t.discover.nothingFound}
+                    options={COUNTRIES.map((c) => ({
+                      value: c.code,
+                      label: `${c.flag} ${c.name}`,
+                      hint: c.code,
+                    }))}
+                  />
+                </div>
+                <div className="field">
                   {t.discover.niche}
-                  <select value={category} onChange={(e) => setCategory(e.target.value)}>
-                    {CATEGORIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  <Select
+                    value={category}
+                    onChange={setCategory}
+                    searchPlaceholder={t.discover.searchPlaceholder}
+                    emptyLabel={t.discover.nothingFound}
+                    options={CATEGORIES.map((c) => ({ value: c, label: c }))}
+                  />
+                </div>
                 <label className="field">
                   {t.discover.keyword}
                   <input
