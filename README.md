@@ -30,6 +30,10 @@ npm run dev                  # http://localhost:3000
 | Profile popup | `app/ProfileModal.tsx` | Avatar, full bio, contacts and links for one account |
 | Dropdowns | `app/Select.tsx` | Searchable single/multi select used for geo and niche |
 
+On Discover, Selected and Settings the bottom bar folds while you scroll down: it slides right
+and dissolves into blur, leaving two round icon buttons in the bottom-right corner with the
+page's main actions. Scrolling up blurs them away and brings the full bar back.
+
 ### Keyboard
 
 | Key | Action |

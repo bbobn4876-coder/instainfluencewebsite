@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ALL, CATEGORIES, COUNTRIES } from "@/lib/countries";
 import { dict, type Language } from "@/lib/i18n";
 import { MAIL_PROVIDERS, guessProvider, providerById } from "@/lib/mailProviders";
@@ -128,6 +128,9 @@ export default function Page() {
   const [details, setDetails] = useState<Influencer | null>(null);
 
   const [collapsed, setCollapsed] = useState(false);
+  // The bottom bar folds into round icons while scrolling down through a page.
+  const [dockCompact, setDockCompact] = useState(false);
+  const lastScroll = useRef(0);
 
   // Keep the untouched template in the active language.
   useEffect(() => {
@@ -418,6 +421,22 @@ export default function Page() {
 
   const emailReady = Boolean(settings.email.host && settings.email.user && settings.email.hasPassword);
 
+  const foldableDock = view === "discover" || view === "selected" || view === "settings";
+
+  const onContentScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    if (!foldableDock) return;
+    const top = event.currentTarget.scrollTop;
+    const delta = top - lastScroll.current;
+    if (Math.abs(delta) < 6) return;
+    lastScroll.current = top;
+    setDockCompact(top > 40 && delta > 0);
+  };
+
+  useEffect(() => {
+    lastScroll.current = 0;
+    setDockCompact(false);
+  }, [view]);
+
   const visibleInbox =
     inboxFilter === "all" ? inbox : inbox.filter((m) => m.channel === inboxFilter);
 
@@ -468,7 +487,7 @@ export default function Page() {
       </aside>
 
       <main className="main">
-        <div className="content" key={view}>
+        <div className="content" key={view} onScroll={onContentScroll}>
           {notice ? <div className="notice">{notice}</div> : null}
 
           {view === "discover" ? (
@@ -900,7 +919,7 @@ export default function Page() {
           ) : null}
         </div>
 
-        <div className="dock">
+        <div className="dock" data-compact={foldableDock && dockCompact}>
           {view === "discover" || view === "selected" ? (
             <>
               <div className="dock-fields">
@@ -1046,6 +1065,66 @@ export default function Page() {
             </div>
           ) : null}
         </div>
+        {foldableDock ? (
+          <div className="dock-mini" data-open={dockCompact} aria-hidden={!dockCompact}>
+            {view === "settings" ? (
+              <>
+                <button
+                  className="mini-button"
+                  title={t.settings.test}
+                  aria-label={t.settings.test}
+                  onClick={testEmail}
+                  disabled={testing}
+                >
+                  <svg viewBox="0 0 20 20" aria-hidden>
+                    <path d="M3 6.5h14v9H3z" />
+                    <path d="M3 7l7 5 7-5" />
+                  </svg>
+                </button>
+                <button
+                  className="mini-button mini-primary"
+                  title={t.settings.save}
+                  aria-label={t.settings.save}
+                  onClick={saveSettings}
+                  disabled={savingSettings}
+                >
+                  <svg viewBox="0 0 20 20" aria-hidden>
+                    <path d="M4 10.5l4 4 8-9" />
+                  </svg>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  className="mini-button"
+                  title={t.discover.selectAll}
+                  aria-label={t.discover.selectAll}
+                  onClick={() => setSelectedIds(influencers.map((i) => i.id))}
+                  disabled={influencers.length === 0}
+                >
+                  <svg viewBox="0 0 20 20" aria-hidden>
+                    <path d="M2.5 10.5l3 3 6-6M8.5 13.5l3 3 6-6" />
+                  </svg>
+                  {selectedIds.length ? (
+                    <span className="mini-count">{selectedIds.length}</span>
+                  ) : null}
+                </button>
+                <button
+                  className="mini-button mini-primary"
+                  title={t.discover.parse}
+                  aria-label={t.discover.parse}
+                  onClick={search}
+                  disabled={loading}
+                >
+                  <svg viewBox="0 0 20 20" aria-hidden>
+                    <circle cx="9" cy="9" r="5.5" />
+                    <path d="M13 13l4 4" />
+                  </svg>
+                </button>
+              </>
+            )}
+          </div>
+        ) : null}
       </main>
 
       {details ? (

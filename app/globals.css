@@ -1408,6 +1408,13 @@ textarea {
   left: 0;
   right: 0;
   bottom: 0;
+  transform: translateX(0);
+  opacity: 1;
+  filter: blur(0);
+  transition:
+    transform 0.46s cubic-bezier(0.32, 0.72, 0.24, 1),
+    opacity 0.34s ease,
+    filter 0.34s ease;
   min-height: var(--dock);
   display: flex;
   align-items: center;
@@ -1416,6 +1423,117 @@ textarea {
   border-top: 1px solid var(--line);
   background: rgba(8, 5, 7, 0.7);
   backdrop-filter: blur(22px);
+}
+
+/* Scrolling down: the bar slides off to the right and dissolves into blur. */
+.dock[data-compact="true"] {
+  transform: translateX(6%);
+  opacity: 0;
+  filter: blur(14px);
+  pointer-events: none;
+}
+
+.dock-mini {
+  position: absolute;
+  right: 28px;
+  bottom: 28px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  opacity: 0;
+  filter: blur(12px);
+  transform: translateX(24px) scale(0.9);
+  pointer-events: none;
+  transition:
+    transform 0.46s cubic-bezier(0.32, 0.72, 0.24, 1),
+    opacity 0.3s ease,
+    filter 0.3s ease;
+}
+
+.dock-mini[data-open="true"] {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateX(0) scale(1);
+  pointer-events: auto;
+}
+
+/* Each button trails the one below it, so the rail unfolds upward. */
+.dock-mini > *:nth-child(1) {
+  transition-delay: 0.06s;
+}
+
+.dock-mini > *:nth-child(2) {
+  transition-delay: 0s;
+}
+
+.mini-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: rgba(16, 10, 13, 0.82);
+  backdrop-filter: blur(18px);
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.mini-button svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mini-button:hover:not(:disabled) {
+  transform: scale(1.06);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.mini-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mini-primary {
+  border-color: rgba(156, 35, 71, 0.6);
+  background: linear-gradient(135deg, var(--burgundy-soft), var(--burgundy));
+  color: #fff;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45), 0 0 26px rgba(156, 35, 71, 0.35);
+}
+
+.mini-count {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--burgundy-soft);
+  color: #fff;
+  font-size: 10px;
+  line-height: 17px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock,
+  .dock-mini {
+    transition: none;
+  }
 }
 
 .dock-fields {
@@ -1496,7 +1614,118 @@ textarea {
     align-items: stretch;
   }
 
-  .dock-fields {
+  /* Scrolling down: the bar slides off to the right and dissolves into blur. */
+.dock[data-compact="true"] {
+  transform: translateX(6%);
+  opacity: 0;
+  filter: blur(14px);
+  pointer-events: none;
+}
+
+.dock-mini {
+  position: absolute;
+  right: 28px;
+  bottom: 28px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  opacity: 0;
+  filter: blur(12px);
+  transform: translateX(24px) scale(0.9);
+  pointer-events: none;
+  transition:
+    transform 0.46s cubic-bezier(0.32, 0.72, 0.24, 1),
+    opacity 0.3s ease,
+    filter 0.3s ease;
+}
+
+.dock-mini[data-open="true"] {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateX(0) scale(1);
+  pointer-events: auto;
+}
+
+/* Each button trails the one below it, so the rail unfolds upward. */
+.dock-mini > *:nth-child(1) {
+  transition-delay: 0.06s;
+}
+
+.dock-mini > *:nth-child(2) {
+  transition-delay: 0s;
+}
+
+.mini-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: rgba(16, 10, 13, 0.82);
+  backdrop-filter: blur(18px);
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.mini-button svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mini-button:hover:not(:disabled) {
+  transform: scale(1.06);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.mini-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mini-primary {
+  border-color: rgba(156, 35, 71, 0.6);
+  background: linear-gradient(135deg, var(--burgundy-soft), var(--burgundy));
+  color: #fff;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45), 0 0 26px rgba(156, 35, 71, 0.35);
+}
+
+.mini-count {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--burgundy-soft);
+  color: #fff;
+  font-size: 10px;
+  line-height: 17px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock,
+  .dock-mini {
+    transition: none;
+  }
+}
+
+.dock-fields {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
