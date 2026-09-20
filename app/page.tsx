@@ -430,14 +430,14 @@ export default function Page() {
         >
           <span className="brand-mark-wrap">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="brand-mark" src="/iconinfluence.png" alt="InstaInfluence" />
+            <img className="brand-mark" src="/iconinfluence.png" alt="Loomera" />
             <span className="brand-collapse" aria-hidden>
               <svg viewBox="0 0 20 20">
                 <path d={collapsed ? "M8 5l5 5-5 5" : "M12 5l-5 5 5 5"} />
               </svg>
             </span>
           </span>
-          {collapsed ? null : <span className="brand-name">InstaInfluence</span>}
+          {collapsed ? null : <span className="brand-name">Loomera</span>}
         </button>
 
         <nav className="nav">

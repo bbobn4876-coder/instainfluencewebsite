@@ -3,7 +3,7 @@ import Intro from "./Intro";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "InstaInfluence — influencer discovery & outreach",
+  title: "Loomera — influencer discovery & outreach",
   description:
     "Find Instagram influencers by country, pull their public contacts, and run outreach across email, Instagram and their other socials.",
 };

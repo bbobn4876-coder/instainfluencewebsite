@@ -1,4 +1,4 @@
-# InstaInfluence
+# Loomera
 
 Influencer discovery and outreach for Instagram: pick a geo, pull public profiles with the
 contacts stated in their bio (email, phone, links to their other networks), select the ones you
