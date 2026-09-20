@@ -4,6 +4,7 @@ import { renderTemplate } from "./tokens";
 import type { Influencer, OutreachResult } from "./types";
 
 export type OutreachRequest = {
+  userId: string;
   influencers: Influencer[];
   subject: string;
   body: string;
@@ -13,8 +14,8 @@ export type OutreachRequest = {
 type MailAccount = { transport: Transporter; from: string; replyTo?: string };
 
 /** Built from the account saved in Settings, falling back to the SMTP_* env vars. */
-async function mailAccount(): Promise<MailAccount | null> {
-  const { email } = await readSettings();
+async function mailAccount(userId: string): Promise<MailAccount | null> {
+  const { email } = await readSettings(userId);
   if (!email.host || !email.user || !email.pass) return null;
   const port = email.port > 0 ? email.port : 587;
   return {
@@ -33,12 +34,12 @@ async function mailAccount(): Promise<MailAccount | null> {
   };
 }
 
-export async function emailConfigured(): Promise<boolean> {
-  return (await mailAccount()) !== null;
+export async function emailConfigured(userId: string): Promise<boolean> {
+  return (await mailAccount(userId)) !== null;
 }
 
-export async function verifyEmailAccount(): Promise<{ ok: boolean; detail: string }> {
-  const account = await mailAccount();
+export async function verifyEmailAccount(userId: string): Promise<{ ok: boolean; detail: string }> {
+  const account = await mailAccount(userId);
   if (!account) return { ok: false, detail: "No email account saved." };
   try {
     await account.transport.verify();
@@ -56,8 +57,8 @@ function dmUrl(platform: string, url: string, username: string): string {
 
 export async function runOutreach(request: OutreachRequest): Promise<OutreachResult[]> {
   const results: OutreachResult[] = [];
-  const account = await mailAccount();
-  const { accounts } = await readSettings();
+  const account = await mailAccount(request.userId);
+  const { accounts } = await readSettings(request.userId);
   const sender = normalizeHandle(accounts.instagram);
 
   for (const influencer of request.influencers) {

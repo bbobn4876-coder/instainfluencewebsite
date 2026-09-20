@@ -6,6 +6,7 @@ import { dict, type Language } from "@/lib/i18n";
 import { MAIL_PROVIDERS, guessProvider, providerById } from "@/lib/mailProviders";
 import Select from "./Select";
 import ProfileModal from "./ProfileModal";
+import AuthModal from "./AuthModal";
 import TokenEditor from "./TokenEditor";
 import { TOKENS } from "@/lib/tokens";
 import type { PublicSettings } from "@/lib/settings";
@@ -120,6 +121,9 @@ export default function Page() {
   const [imapPassword, setImapPassword] = useState("");
 
   const [details, setDetails] = useState<Influencer | null>(null);
+  const [user, setUser] = useState<{ id: string; email: string } | null>(null);
+  const [authMode, setAuthMode] = useState<"signin" | "signup" | null>(null);
+  const [banner, setBanner] = useState(false);
 
   const [collapsed, setCollapsed] = useState(false);
   // The bottom bar folds into round icons while scrolling down through a page.
@@ -142,9 +146,21 @@ export default function Page() {
     } catch {
       /* storage can be blocked; the default stays expanded */
     }
-    fetch("/api/settings")
+    fetch("/api/auth")
       .then((r) => r.json())
-      .then((data: PublicSettings) => {
+      .then((data) => setUser(data.user ?? null))
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setSettings(EMPTY_SETTINGS);
+      return;
+    }
+    fetch("/api/settings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: PublicSettings | null) => {
+        if (!data) return;
         setSettings(data);
         setLanguage(data.language);
         const known = MAIL_PROVIDERS.find(
@@ -153,7 +169,7 @@ export default function Page() {
         if (known) setProviderId(known.id);
       })
       .catch(() => undefined);
-  }, []);
+  }, [user]);
 
   // Phone layout: the dock hides its fields and opens them as a panel instead.
   useEffect(() => {
@@ -186,6 +202,31 @@ export default function Page() {
       /* ignore */
     }
   }, [motion]);
+
+  // Nudge signed-out visitors now and then rather than nagging constantly.
+  useEffect(() => {
+    if (user) {
+      setBanner(false);
+      return;
+    }
+    const show = setTimeout(() => setBanner(true), 4000);
+    const cycle = setInterval(() => setBanner((prev) => !prev), 30000);
+    return () => {
+      clearTimeout(show);
+      clearInterval(cycle);
+    };
+  }, [user]);
+
+  const signOut = useCallback(async () => {
+    await fetch("/api/auth", { method: "DELETE" });
+    setUser(null);
+    setInfluencers([]);
+    setSelectedIds([]);
+    setResults([]);
+    setInbox([]);
+    setInboxLoaded(false);
+    setSettings(EMPTY_SETTINGS);
+  }, []);
 
   const toggleSidebar = useCallback(() => {
     setCollapsed((prev) => {
@@ -234,6 +275,10 @@ export default function Page() {
   );
 
   const search = useCallback(async () => {
+    if (!user) {
+      setAuthMode("signin");
+      return;
+    }
     setLoading(true);
     setNotice(null);
     try {
@@ -262,12 +307,16 @@ export default function Page() {
     } finally {
       setLoading(false);
     }
-  }, [countries, categories, keyword, minFollowers, maxFollowers]);
+  }, [user, countries, categories, keyword, minFollowers, maxFollowers]);
 
   const toggle = (id: string) =>
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   const send = useCallback(async () => {
+    if (!user) {
+      setAuthMode("signin");
+      return;
+    }
     if (selected.length === 0) return;
     setSending(true);
     setNotice(null);
@@ -286,9 +335,13 @@ export default function Page() {
     } finally {
       setSending(false);
     }
-  }, [selected, subject, body, channels]);
+  }, [user, selected, subject, body, channels]);
 
   const loadInbox = useCallback(async () => {
+    if (!user) {
+      setAuthMode("signin");
+      return;
+    }
     setInboxLoading(true);
     setNotice(null);
     try {
@@ -303,14 +356,18 @@ export default function Page() {
     } finally {
       setInboxLoading(false);
     }
-  }, []);
+  }, [user]);
 
   // Fetch on the first visit to the page; refreshing afterwards is manual.
   useEffect(() => {
-    if (view === "inbox" && !inboxLoaded && !inboxLoading) void loadInbox();
-  }, [view, inboxLoaded, inboxLoading, loadInbox]);
+    if (user && view === "inbox" && !inboxLoaded && !inboxLoading) void loadInbox();
+  }, [user, view, inboxLoaded, inboxLoading, loadInbox]);
 
   const saveSettings = useCallback(async () => {
+    if (!user) {
+      setAuthMode("signin");
+      return;
+    }
     setSavingSettings(true);
     setNotice(null);
     try {
@@ -337,7 +394,7 @@ export default function Page() {
     } finally {
       setSavingSettings(false);
     }
-  }, [language, settings, password, imapPassword, telegramBot, t]);
+  }, [user, language, settings, password, imapPassword, telegramBot, t]);
 
   const disconnect = useCallback(async () => {
     if (!window.confirm(t.settings.disconnectConfirm)) return;
@@ -363,6 +420,10 @@ export default function Page() {
   }, [t]);
 
   const testEmail = useCallback(async () => {
+    if (!user) {
+      setAuthMode("signin");
+      return;
+    }
     setTesting(true);
     setNotice(null);
     try {
@@ -374,7 +435,7 @@ export default function Page() {
     } finally {
       setTesting(false);
     }
-  }, []);
+  }, [user]);
 
   const setEmailField = (key: keyof PublicSettings["email"], value: string | number) =>
     setSettings((prev) => ({ ...prev, email: { ...prev.email, [key]: value } }));
@@ -600,13 +661,76 @@ export default function Page() {
             </button>
           ))}
         </nav>
+
+        <div className="sidebar-auth">
+          {user ? (
+            <button
+              className="nav-item"
+              onClick={signOut}
+              title={`${user.email} · ${t.auth.signOut}`}
+            >
+              <span className="nav-icon">
+                <svg viewBox="0 0 20 20" aria-hidden>
+                  <path d="M12.5 6.5V5a1.5 1.5 0 00-1.5-1.5H5A1.5 1.5 0 003.5 5v10A1.5 1.5 0 005 16.5h6a1.5 1.5 0 001.5-1.5v-1.5" />
+                  <path d="M8 10h9M14.5 7l3 3-3 3" />
+                </svg>
+              </span>
+              {collapsed ? null : (
+                <span className="nav-label auth-email">{user.email}</span>
+              )}
+            </button>
+          ) : (
+            <button
+              className="nav-item nav-signin"
+              onClick={() => setAuthMode("signin")}
+              title={`${t.auth.signIn} / ${t.auth.signUp}`}
+            >
+              <span className="nav-icon">
+                <svg viewBox="0 0 20 20" aria-hidden>
+                  <circle cx="10" cy="7" r="3.2" />
+                  <path d="M4 16.5c0-2.8 2.7-4.5 6-4.5s6 1.7 6 4.5" />
+                </svg>
+              </span>
+              {collapsed ? null : (
+                <span className="nav-label">
+                  {t.auth.signIn} / {t.auth.signUp}
+                </span>
+              )}
+            </button>
+          )}
+        </div>
       </aside>
 
       <main className="main">
+        <div className="auth-bar" data-open={!user && banner} aria-hidden={!(!user && banner)}>
+          <span>{t.auth.banner}</span>
+          <button className="btn" onClick={() => setAuthMode("signin")}>
+            {t.auth.bannerAction}
+          </button>
+          <button className="btn btn-ghost" onClick={() => setBanner(false)}>
+            {t.auth.dismiss}
+          </button>
+        </div>
+
         <div className="content" key={view} onScroll={onContentScroll}>
           {notice ? <div className="notice">{notice}</div> : null}
 
-          {view === "discover" ? (
+          {!user ? (
+            <div className="locked">
+              <h2 className="locked-title">{t.auth.lockedTitle}</h2>
+              <p className="locked-body">{t.auth.lockedBody}</p>
+              <div className="locked-actions">
+                <button className="btn" onClick={() => setAuthMode("signin")}>
+                  {t.auth.signIn}
+                </button>
+                <button className="btn btn-ghost" onClick={() => setAuthMode("signup")}>
+                  {t.auth.signUp}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {user && view === "discover" ? (
             <>
               <h1 className="view-title">{t.discover.title}</h1>
               <p className="view-sub">{t.discover.sub}</p>
@@ -653,7 +777,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "compose" ? (
+          {user && view === "compose" ? (
             <>
               <h1 className="view-title">{t.compose.title}</h1>
               <p className="view-sub">
@@ -706,7 +830,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "results" ? (
+          {user && view === "results" ? (
             <>
               <h1 className="view-title">{t.results.title}</h1>
               <p className="view-sub">
@@ -783,7 +907,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "inbox" ? (
+          {user && view === "inbox" ? (
             <>
               <h1 className="view-title">{t.inbox.title}</h1>
               <p className="view-sub">{t.inbox.sub}</p>
@@ -855,7 +979,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "settings" ? (
+          {user && view === "settings" ? (
             <>
               <h1 className="view-title">{t.settings.title}</h1>
               <p className="view-sub">{t.settings.sub}</p>
@@ -1197,7 +1321,7 @@ export default function Page() {
 
         {foldableDock ? (
           <div className="dock-mini" data-open={dockCompact} aria-hidden={!dockCompact}>
-            {view === "settings" ? (
+            {user && view === "settings" ? (
               <>
                 <button
                   className="mini-button"
@@ -1267,6 +1391,20 @@ export default function Page() {
           </div>
         ) : null}
       </main>
+
+      {authMode ? (
+        <AuthModal
+          mode={authMode}
+          onMode={setAuthMode}
+          onClose={() => setAuthMode(null)}
+          onDone={(signedIn) => {
+            setUser(signedIn);
+            setAuthMode(null);
+            setNotice(null);
+          }}
+          labels={{ ...t.auth, close: t.discover.close }}
+        />
+      ) : null}
 
       {details ? (
         <ProfileModal

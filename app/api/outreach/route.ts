@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { emailConfigured, runOutreach } from "@/lib/outreach";
+import { requireUser } from "@/lib/session";
 import type { Influencer } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -7,10 +8,15 @@ export const dynamic = "force-dynamic";
 const MAX_RECIPIENTS = 200;
 
 export async function GET() {
-  return NextResponse.json({ emailConfigured: await emailConfigured() });
+  const { user, response } = await requireUser();
+  if (!user) return response;
+  return NextResponse.json({ emailConfigured: await emailConfigured(user.id) });
 }
 
 export async function POST(request: Request) {
+  const { user, response: denied } = await requireUser();
+  if (!user) return denied;
+
   let payload: {
     influencers?: Influencer[];
     subject?: string;
@@ -47,11 +53,12 @@ export async function POST(request: Request) {
   }
 
   const results = await runOutreach({
+    userId: user.id,
     influencers,
     subject: payload.subject?.trim() || "Collaboration",
     body: payload.body,
     channels,
   });
 
-  return NextResponse.json({ results, emailConfigured: await emailConfigured() });
+  return NextResponse.json({ results, emailConfigured: await emailConfigured(user.id) });
 }

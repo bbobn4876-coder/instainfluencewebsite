@@ -37,7 +37,11 @@ export type AppSettings = {
 };
 
 const DATA_DIR = process.env.DATA_DIR ?? path.join(process.cwd(), ".data");
-const SETTINGS_FILE = path.join(DATA_DIR, "settings.json");
+
+/** Every account keeps its own mail credentials and handles. */
+function settingsFile(userId: string): string {
+  return path.join(DATA_DIR, "users", `${userId}.json`);
+}
 
 function defaults(): AppSettings {
   return {
@@ -61,10 +65,10 @@ function defaults(): AppSettings {
   };
 }
 
-export async function readSettings(): Promise<AppSettings> {
+export async function readSettings(userId: string): Promise<AppSettings> {
   const base = defaults();
   try {
-    const raw = await fs.readFile(SETTINGS_FILE, "utf8");
+    const raw = await fs.readFile(settingsFile(userId), "utf8");
     const stored = JSON.parse(raw) as Partial<AppSettings>;
     return {
       language: stored.language === "ru" ? "ru" : "en",
@@ -79,9 +83,9 @@ export async function readSettings(): Promise<AppSettings> {
   }
 }
 
-export async function writeSettings(next: AppSettings): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(SETTINGS_FILE, JSON.stringify(next, null, 2), { mode: 0o600 });
+export async function writeSettings(userId: string, next: AppSettings): Promise<void> {
+  await fs.mkdir(path.join(DATA_DIR, "users"), { recursive: true });
+  await fs.writeFile(settingsFile(userId), JSON.stringify(next, null, 2), { mode: 0o600 });
 }
 
 /** The password never leaves the server; the client only learns whether one is stored. */

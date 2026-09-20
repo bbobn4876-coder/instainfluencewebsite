@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
 import { readSettings, toPublicSettings, writeSettings, type AppSettings } from "@/lib/settings";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return NextResponse.json(toPublicSettings(await readSettings()));
+  const { user, response } = await requireUser();
+  if (!user) return response;
+  return NextResponse.json(toPublicSettings(await readSettings(user.id)));
 }
 
 export async function POST(request: Request) {
+  const { user, response: denied } = await requireUser();
+  if (!user) return denied;
+
   let payload: Record<string, unknown>;
   try {
     payload = await request.json();
@@ -15,7 +21,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const current = await readSettings();
+  const current = await readSettings(user.id);
   const email = (payload.email ?? {}) as Record<string, unknown>;
   const imap = (payload.imap ?? {}) as Record<string, unknown>;
   const accounts = (payload.accounts ?? {}) as Record<string, unknown>;
@@ -52,13 +58,16 @@ export async function POST(request: Request) {
     },
   };
 
-  await writeSettings(next);
+  await writeSettings(user.id, next);
   return NextResponse.json(toPublicSettings(next));
 }
 
 /** Disconnects every saved account, keeping only the chosen language. */
 export async function DELETE() {
-  const current = await readSettings();
+  const { user, response } = await requireUser();
+  if (!user) return response;
+
+  const current = await readSettings(user.id);
   const cleared: AppSettings = {
     language: current.language,
     email: { host: "", port: 587, user: "", pass: "", from: "", replyTo: "" },
@@ -66,6 +75,6 @@ export async function DELETE() {
     accounts: { instagram: "", telegram: "", tiktok: "", youtube: "", website: "" },
     telegramBotToken: "",
   };
-  await writeSettings(cleared);
+  await writeSettings(user.id, cleared);
   return NextResponse.json(toPublicSettings(cleared));
 }

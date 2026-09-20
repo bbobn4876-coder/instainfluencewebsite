@@ -33,8 +33,8 @@ function preview(text: string): string {
   return flat.length > PREVIEW_LENGTH ? `${flat.slice(0, PREVIEW_LENGTH)}…` : flat;
 }
 
-async function emailInbox(limit: number): Promise<{ messages: InboxMessage[]; status: ChannelStatus }> {
-  const { imap, email } = await readSettings();
+async function emailInbox(userId: string, limit: number): Promise<{ messages: InboxMessage[]; status: ChannelStatus }> {
+  const { imap, email } = await readSettings(userId);
   // The IMAP block falls back to the SMTP login when only the host is given.
   const host = imap.host;
   const user = imap.user || email.user;
@@ -164,8 +164,8 @@ async function instagramInbox(limit: number): Promise<{ messages: InboxMessage[]
 }
 
 /** Telegram inbox via a bot: only chats that messaged the bot are visible. */
-async function telegramInbox(limit: number): Promise<{ messages: InboxMessage[]; status: ChannelStatus }> {
-  const { telegramBotToken } = await readSettings();
+async function telegramInbox(userId: string, limit: number): Promise<{ messages: InboxMessage[]; status: ChannelStatus }> {
+  const { telegramBotToken } = await readSettings(userId);
   if (!telegramBotToken) {
     return {
       messages: [],
@@ -226,11 +226,11 @@ async function telegramInbox(limit: number): Promise<{ messages: InboxMessage[];
   }
 }
 
-export async function fetchInbox(limit = 25): Promise<InboxResult> {
+export async function fetchInbox(userId: string, limit = 25): Promise<InboxResult> {
   const [email, instagram, telegram] = await Promise.all([
-    emailInbox(limit),
+    emailInbox(userId, limit),
     instagramInbox(limit),
-    telegramInbox(limit),
+    telegramInbox(userId, limit),
   ]);
 
   const messages = [...email.messages, ...instagram.messages, ...telegram.messages].sort(

@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { searchInfluencers } from "@/lib/providers";
 import { ALL, countryByCode } from "@/lib/countries";
+import { requireUser } from "@/lib/session";
 import type { SearchQuery } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const { user, response } = await requireUser();
+  if (!user) return response;
+
   let payload: Partial<SearchQuery>;
   try {
     payload = await request.json();

@@ -7,6 +7,17 @@ want and run outreach from the same screen.
 Black UI with a blurred burgundy gradient, Inter/Helvetica, navigation on the left and every
 control docked at the bottom.
 
+## Accounts
+
+The app is account-based: nothing works until you sign up. The **Sign in / Sign up** button sits
+at the bottom of the sidebar, and a reminder bar appears at the top of the page while signed out.
+
+Accounts live in `.data/users.json` with scrypt-hashed passwords, and each account keeps its own
+mail credentials, social handles and language in `.data/users/<id>.json`, so replies come back to
+whoever connected the mailbox. Sessions are HMAC-signed cookies (HttpOnly, 30 days); set
+`AUTH_SECRET` to pin the signing key, otherwise one is generated into `.data/secret` on first run.
+Every API route rejects an unauthenticated request with 401.
+
 ## Run
 
 ```bash
@@ -23,7 +34,8 @@ npm run dev                  # http://localhost:3000
 | Contact parsing | `lib/contacts.ts` | Emails (incl. `name (at) domain.com`), phones, social links |
 | Outreach | `lib/outreach.ts` | SMTP sending + drafts for Instagram and other networks |
 | Inbox | `lib/inbox.ts`, `app/api/inbox` | IMAP, Telegram and Instagram replies |
-| Account settings | `lib/settings.ts`, `app/api/settings` | Sender account, social handles, language |
+| Accounts | `lib/auth.ts`, `lib/session.ts`, `app/api/auth` | Sign up, sign in, session cookies |
+| Account settings | `lib/settings.ts`, `app/api/settings` | Per-user sender account, handles, language |
 | Translations | `lib/i18n.ts` | EN/RU strings |
 | API | `app/api/search`, `app/api/outreach` | JSON endpoints used by the UI |
 | UI | `app/page.tsx`, `app/globals.css` | Discover · Compose · Results · Inbox · Settings |
