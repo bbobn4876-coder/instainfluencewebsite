@@ -93,6 +93,8 @@ export default function Page() {
   const [influencers, setInfluencers] = useState<Influencer[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [onlySelected, setOnlySelected] = useState(false);
+  const [resultChannel, setResultChannel] = useState<"all" | "email" | "instagram" | "other">("all");
+  const [resultStatus, setResultStatus] = useState<"all" | "sent" | "drafted" | "skipped" | "failed">("all");
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -122,6 +124,8 @@ export default function Page() {
   const [collapsed, setCollapsed] = useState(false);
   // The bottom bar folds into round icons while scrolling down through a page.
   const [dockCompact, setDockCompact] = useState(false);
+  const [miniFilters, setMiniFilters] = useState(false);
+  const [motion, setMotion] = useState(true);
   const lastScroll = useRef(0);
 
   // Keep the untouched template in the active language.
@@ -149,6 +153,25 @@ export default function Page() {
       })
       .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    let enabled = true;
+    try {
+      enabled = window.localStorage.getItem("motion") !== "off";
+    } catch {
+      /* storage can be blocked; animations stay on */
+    }
+    setMotion(enabled);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.motion = motion ? "on" : "off";
+    try {
+      window.localStorage.setItem("motion", motion ? "on" : "off");
+    } catch {
+      /* ignore */
+    }
+  }, [motion]);
 
   const toggleSidebar = useCallback(() => {
     setCollapsed((prev) => {
@@ -415,6 +438,17 @@ export default function Page() {
 
   const visibleInfluencers = onlySelected ? selected : influencers;
 
+  const allSelected = influencers.length > 0 && selectedIds.length === influencers.length;
+
+  const toggleSelectAll = () =>
+    setSelectedIds(allSelected ? [] : influencers.map((i) => i.id));
+
+  const visibleResults = results.filter(
+    (r) =>
+      (resultChannel === "all" || r.channel === resultChannel) &&
+      (resultStatus === "all" || r.status === resultStatus),
+  );
+
   const foldableDock = view === "discover" || view === "settings";
 
   const onContentScroll = (event: React.UIEvent<HTMLDivElement>) => {
@@ -429,10 +463,84 @@ export default function Page() {
   useEffect(() => {
     lastScroll.current = 0;
     setDockCompact(false);
+    setMiniFilters(false);
   }, [view]);
+
+  useEffect(() => {
+    if (!dockCompact) setMiniFilters(false);
+  }, [dockCompact]);
 
   const visibleInbox =
     inboxFilter === "all" ? inbox : inbox.filter((m) => m.channel === inboxFilter);
+
+  const searchFields = (
+    <>
+                <div className="field">
+                  {t.discover.geo}
+                  <Select
+                    multiple
+                    value={countries}
+                    onChange={setCountries}
+                    summary={t.discover.chosen}
+                    searchPlaceholder={t.discover.searchPlaceholder}
+                    emptyLabel={t.discover.nothingFound}
+                    options={[
+                      { value: ALL, label: t.discover.all, exclusive: true },
+                      ...[...COUNTRIES]
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .map((c) => ({
+                          value: c.code,
+                          label: `${c.flag} ${c.name}`,
+                          hint: c.code,
+                        })),
+                    ]}
+                  />
+                </div>
+                <div className="field">
+                  {t.discover.niche}
+                  <Select
+                    multiple
+                    value={categories}
+                    onChange={setCategories}
+                    summary={t.discover.chosen}
+                    searchPlaceholder={t.discover.searchPlaceholder}
+                    emptyLabel={t.discover.nothingFound}
+                    options={[
+                      { value: ALL, label: t.discover.all, exclusive: true },
+                      ...CATEGORIES.map((c) => ({ value: c, label: c })),
+                    ]}
+                  />
+                </div>
+                <label className="field">
+                  {t.discover.keyword}
+                  <input
+                    value={keyword}
+                    placeholder={t.discover.keywordPlaceholder}
+                    onChange={(e) => setKeyword(e.target.value)}
+                  />
+                </label>
+                <label className="field">
+                  {t.discover.minFollowers}
+                  <input
+                    type="number"
+                    min={0}
+                    step={1000}
+                    value={minFollowers}
+                    onChange={(e) => setMinFollowers(Number(e.target.value))}
+                  />
+                </label>
+                <label className="field">
+                  {t.discover.maxFollowers}
+                  <input
+                    type="number"
+                    min={0}
+                    step={1000}
+                    value={maxFollowers}
+                    onChange={(e) => setMaxFollowers(Number(e.target.value))}
+                  />
+                </label>
+    </>
+  );
 
   return (
     <div className="shell">
@@ -593,11 +701,52 @@ export default function Page() {
                 {results.filter((r) => r.status === "skipped").length} {t.results.skipped} ·{" "}
                 {results.filter((r) => r.status === "failed").length} {t.results.failed}
               </p>
+              {results.length > 0 ? (
+                <div className="filter-rows">
+                  <div className="toggles">
+                    {(["all", "email", "instagram", "other"] as const).map((channel) => (
+                      <button
+                        key={channel}
+                        className="toggle"
+                        aria-pressed={resultChannel === channel}
+                        onClick={() => setResultChannel(channel)}
+                      >
+                        {t.results[channel]}
+                        <span className="toggle-count">
+                          {channel === "all"
+                            ? results.length
+                            : results.filter((r) => r.channel === channel).length}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="toggles">
+                    {(["all", "sent", "drafted", "skipped", "failed"] as const).map((status) => (
+                      <button
+                        key={status}
+                        className="toggle"
+                        aria-pressed={resultStatus === status}
+                        onClick={() => setResultStatus(status)}
+                      >
+                        {status === "all" ? t.results.all : t.results[status]}
+                        <span className="toggle-count">
+                          {status === "all"
+                            ? results.length
+                            : results.filter((r) => r.status === status).length}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               {results.length === 0 ? (
                 <div className="empty">{t.results.empty}</div>
+              ) : visibleResults.length === 0 ? (
+                <div className="empty">{t.results.nothingMatches}</div>
               ) : (
                 <div className="rows">
-                  {results.map((result, index) => (
+                  {visibleResults.map((result, index) => (
                     <div className="row" key={`${result.influencerId}-${result.channel}-${index}`}>
                       <span>@{result.username}</span>
                       <span className="muted">{result.channel}</span>
@@ -710,6 +859,23 @@ export default function Page() {
                         {code.toUpperCase()}
                       </button>
                     ))}
+                  </div>
+                </section>
+
+                <section className="panel">
+                  <h2 className="panel-title">{t.settings.motion}</h2>
+                  <p className="hint">{t.settings.motionHint}</p>
+                  <div className="toggles">
+                    <button className="toggle" aria-pressed={motion} onClick={() => setMotion(true)}>
+                      {t.settings.motionOn}
+                    </button>
+                    <button
+                      className="toggle"
+                      aria-pressed={!motion}
+                      onClick={() => setMotion(false)}
+                    >
+                      {t.settings.motionOff}
+                    </button>
                   </div>
                 </section>
 
@@ -917,80 +1083,16 @@ export default function Page() {
         <div className="dock" data-compact={foldableDock && dockCompact}>
           {view === "discover" ? (
             <>
-              <div className="dock-fields">
-                <div className="field">
-                  {t.discover.geo}
-                  <Select
-                    multiple
-                    value={countries}
-                    onChange={setCountries}
-                    summary={t.discover.chosen}
-                    searchPlaceholder={t.discover.searchPlaceholder}
-                    emptyLabel={t.discover.nothingFound}
-                    options={[
-                      { value: ALL, label: t.discover.all, exclusive: true },
-                      ...[...COUNTRIES]
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .map((c) => ({
-                          value: c.code,
-                          label: `${c.flag} ${c.name}`,
-                          hint: c.code,
-                        })),
-                    ]}
-                  />
-                </div>
-                <div className="field">
-                  {t.discover.niche}
-                  <Select
-                    multiple
-                    value={categories}
-                    onChange={setCategories}
-                    summary={t.discover.chosen}
-                    searchPlaceholder={t.discover.searchPlaceholder}
-                    emptyLabel={t.discover.nothingFound}
-                    options={[
-                      { value: ALL, label: t.discover.all, exclusive: true },
-                      ...CATEGORIES.map((c) => ({ value: c, label: c })),
-                    ]}
-                  />
-                </div>
-                <label className="field">
-                  {t.discover.keyword}
-                  <input
-                    value={keyword}
-                    placeholder={t.discover.keywordPlaceholder}
-                    onChange={(e) => setKeyword(e.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  {t.discover.minFollowers}
-                  <input
-                    type="number"
-                    min={0}
-                    step={1000}
-                    value={minFollowers}
-                    onChange={(e) => setMinFollowers(Number(e.target.value))}
-                  />
-                </label>
-                <label className="field">
-                  {t.discover.maxFollowers}
-                  <input
-                    type="number"
-                    min={0}
-                    step={1000}
-                    value={maxFollowers}
-                    onChange={(e) => setMaxFollowers(Number(e.target.value))}
-                  />
-                </label>
+              <div className="dock-fields">{searchFields}
               </div>
               <div className="dock-actions">
                 <span className="dock-status">{t.discover.selectedCount(selectedIds.length)}</span>
                 <button
                   className="btn btn-ghost"
-                  onClick={() => setSelectedIds(influencers.map((i) => i.id))}
+                  onClick={toggleSelectAll}
                   disabled={influencers.length === 0}
                 >
-                  {t.discover.selectAll}
+                  {allSelected ? t.discover.deselectAll : t.discover.selectAll}
                 </button>
                 <button className="btn" onClick={search} disabled={loading}>
                   {loading ? t.discover.parsing : t.discover.parse}
@@ -1066,6 +1168,12 @@ export default function Page() {
             </div>
           ) : null}
         </div>
+        {foldableDock && view === "discover" ? (
+          <div className="mini-panel" data-open={dockCompact && miniFilters}>
+            {searchFields}
+          </div>
+        ) : null}
+
         {foldableDock ? (
           <div className="dock-mini" data-open={dockCompact} aria-hidden={!dockCompact}>
             {view === "settings" ? (
@@ -1098,9 +1206,20 @@ export default function Page() {
               <>
                 <button
                   className="mini-button"
-                  title={t.discover.selectAll}
-                  aria-label={t.discover.selectAll}
-                  onClick={() => setSelectedIds(influencers.map((i) => i.id))}
+                  title={t.discover.filters}
+                  aria-label={t.discover.filters}
+                  aria-expanded={miniFilters}
+                  onClick={() => setMiniFilters((prev) => !prev)}
+                >
+                  <svg viewBox="0 0 20 20" aria-hidden>
+                    <path d="M3 5.5h14M6 10h8M8.5 14.5h3" />
+                  </svg>
+                </button>
+                <button
+                  className="mini-button"
+                  title={allSelected ? t.discover.deselectAll : t.discover.selectAll}
+                  aria-label={allSelected ? t.discover.deselectAll : t.discover.selectAll}
+                  onClick={toggleSelectAll}
                   disabled={influencers.length === 0}
                 >
                   <svg viewBox="0 0 20 20" aria-hidden>

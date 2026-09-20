@@ -95,7 +95,7 @@ export default function TokenEditor({
           if (!part.token) return <span key={part.start}>{part.text}</span>;
           const waving = wave?.start === part.start && wave.text === part.text;
           return (
-            <mark className="token" key={part.start}>
+            <mark className="token" data-wave={waving} key={part.start}>
               {waving
                 ? [...part.text].map((letter, i) => (
                     <span

@@ -31,8 +31,13 @@ npm run dev                  # http://localhost:3000
 | Dropdowns | `app/Select.tsx` | Searchable single/multi select used for geo and niche |
 
 On Discover and Settings the bottom bar folds while you scroll down: it slides right
-and dissolves into blur, leaving two round icon buttons in the bottom-right corner with the
-page's main actions. Scrolling up blurs them away and brings the full bar back.
+and dissolves into blur, leaving round icon buttons in the bottom-right corner with the page's
+main actions. On Discover one of them opens the search filters as a panel beside the rail, with
+its dropdowns opening leftwards so they stay on screen. Scrolling up blurs the icons away and
+brings the full bar back.
+
+**Settings → Animations** turns the intro, the page transitions and the highlight wave off for
+this browser; the system's own reduce-motion setting is always honoured on top of it.
 
 ### Keyboard
 

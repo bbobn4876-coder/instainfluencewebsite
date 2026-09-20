@@ -486,6 +486,18 @@ body {
   }
 }
 
+html[data-motion="off"] *,
+html[data-motion="off"] *::before,
+html[data-motion="off"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-delay: 0ms !important;
+  transition-duration: 0.001ms !important;
+}
+
+html[data-motion="off"] .intro {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .content,
   .grid > *,
@@ -809,10 +821,14 @@ textarea {
   background-color: rgba(196, 44, 90, 0.92);
   color: #fff;
   font: inherit;
-  animation: token-in 0.5s cubic-bezier(0.22, 0.61, 0.36, 1);
+
   box-shadow:
     0 0 0 2px rgba(196, 44, 90, 0.92),
     0 0 16px rgba(196, 44, 90, 0.5);
+}
+
+.token[data-wave="true"] {
+  animation: token-in 0.5s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 @keyframes token-in {
@@ -860,7 +876,7 @@ textarea {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .token,
+  .token[data-wave="true"],
   .token-letter {
     animation: none;
   }
@@ -1467,6 +1483,55 @@ textarea {
   transition-delay: 0s;
 }
 
+/* The filter fields, stacked to the right while the bar is folded away. */
+.mini-panel {
+  position: absolute;
+  right: 88px;
+  bottom: 28px;
+  z-index: 20;
+  width: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(14, 9, 12, 0.9);
+  backdrop-filter: blur(22px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  filter: blur(12px);
+  transform: translateX(18px);
+  pointer-events: none;
+  transition:
+    transform 0.34s cubic-bezier(0.32, 0.72, 0.24, 1),
+    opacity 0.26s ease,
+    filter 0.26s ease;
+}
+
+.mini-panel[data-open="true"] {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+/* The dropdowns inside it open to the left so they never cross the edge. */
+.mini-panel .select-menu {
+  left: auto;
+  right: 0;
+  min-width: 100%;
+  width: max-content;
+  max-width: 300px;
+}
+
+.filter-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
 .mini-button {
   position: relative;
   display: grid;
@@ -1654,6 +1719,55 @@ textarea {
 
 .dock-mini > *:nth-child(2) {
   transition-delay: 0s;
+}
+
+/* The filter fields, stacked to the right while the bar is folded away. */
+.mini-panel {
+  position: absolute;
+  right: 88px;
+  bottom: 28px;
+  z-index: 20;
+  width: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(14, 9, 12, 0.9);
+  backdrop-filter: blur(22px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  filter: blur(12px);
+  transform: translateX(18px);
+  pointer-events: none;
+  transition:
+    transform 0.34s cubic-bezier(0.32, 0.72, 0.24, 1),
+    opacity 0.26s ease,
+    filter 0.26s ease;
+}
+
+.mini-panel[data-open="true"] {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+/* The dropdowns inside it open to the left so they never cross the edge. */
+.mini-panel .select-menu {
+  left: auto;
+  right: 0;
+  min-width: 100%;
+  width: max-content;
+  max-width: 300px;
+}
+
+.filter-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
 }
 
 .mini-button {

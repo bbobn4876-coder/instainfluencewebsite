@@ -14,7 +14,13 @@ export default function Intro() {
   const [phase, setPhase] = useState<"hidden" | "in" | "out" | "done">("hidden");
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    let motionOff = false;
+    try {
+      motionOff = window.localStorage.getItem("motion") === "off";
+    } catch {
+      /* storage can be blocked; the intro plays */
+    }
+    if (motionOff || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setPhase("done");
       return;
     }
