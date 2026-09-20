@@ -5,6 +5,7 @@ import { ALL, CATEGORIES, COUNTRIES, countryByCode } from "@/lib/countries";
 import { dict, type Language } from "@/lib/i18n";
 import { MAIL_PROVIDERS, guessProvider, providerById } from "@/lib/mailProviders";
 import Select from "./Select";
+import LogoLoader from "./LogoLoader";
 import ProfileModal from "./ProfileModal";
 import AuthModal, { type AuthMode } from "./AuthModal";
 import Landing from "./Landing";
@@ -350,14 +351,14 @@ export default function Page() {
       setOnlySelected(false);
 
       // Apify keeps scraping after the request returns, so poll until it settles.
-      const deadline = Date.now() + 10 * 60 * 1000;
+      const deadline = Date.now() + 60 * 60 * 1000;
       while (data.status === "running" && Date.now() < deadline) {
         collect(data);
         setInfluencers([...byId.values()]);
         setNotice(
           byId.size > 0 ? t.discover.foundSoFar(byId.size) : t.discover.stillRunning,
         );
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        await new Promise((resolve) => setTimeout(resolve, 4000));
         data = await ask({
           runId: String(data.runId),
           datasetId: String(data.datasetId),
@@ -913,7 +914,9 @@ export default function Page() {
               ) : null}
 
               {influencers.length === 0 ? (
-                <div className="empty">{loading ? t.discover.loading : t.discover.empty}</div>
+                <div className="empty">
+                  {loading ? <LogoLoader label={t.discover.loading} /> : t.discover.empty}
+                </div>
               ) : visibleInfluencers.length === 0 ? (
                 <div className="empty">{t.discover.emptySelected}</div>
               ) : (

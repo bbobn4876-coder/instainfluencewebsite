@@ -22,7 +22,7 @@ export const STRINGS = {
         `Looked at ${scanned} accounts under those hashtags, ${matched} fit the follower range. Widen the range or add niches to see more.`,
       geoConfirmed: (confirmed: number, total: number) =>
         `${confirmed} of ${total} confirmed by a tagged post in that country; the rest tag no location.`,
-      tookTooLong: "The scraper is still running after four minutes. Try a narrower search, or check the run in the Apify console.",
+      tookTooLong: "The scraper is still running after an hour. Try a narrower search, or check the run in the Apify console.",
       geo: "geo",
       niche: "niche",
       keyword: "keyword",
@@ -358,7 +358,7 @@ Best,
         `Просмотрено ${scanned} аккаунтов по этим хэштегам, под диапазон подписчиков подошло ${matched}. Расширьте диапазон или добавьте ниши.`,
       geoConfirmed: (confirmed: number, total: number) =>
         `${confirmed} из ${total} подтверждены геометкой поста в этой стране, остальные локацию не отмечают.`,
-      tookTooLong: "Сбор идёт дольше четырёх минут. Сузьте запрос или посмотрите статус запуска в консоли Apify.",
+      tookTooLong: "Сбор идёт дольше часа. Сузьте запрос или посмотрите статус запуска в консоли Apify.",
       geo: "гео",
       niche: "ниша",
       keyword: "ключевое слово",

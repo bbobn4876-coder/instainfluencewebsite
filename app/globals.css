@@ -1673,7 +1673,8 @@ textarea {
   pointer-events: none;
   width: 0;
   padding: 0;
-  margin: 0;
+  /* Cancels the flex gap so hiding the button leaves no hole in the row. */
+  margin: 0 -10px 0 0;
   border-width: 0;
   transition:
     opacity 0.32s ease,
@@ -1685,6 +1686,7 @@ textarea {
 
 .icon-button[data-visible="true"] {
   width: 38px;
+  margin: 0;
   border-width: 1px;
   opacity: 1;
   filter: blur(0);
@@ -2653,18 +2655,20 @@ textarea {
 /* The download pill fades out of the blur the same way the docked one does. */
 .mini-button.mini-fade {
   transition:
+    margin 0.32s ease,
     opacity 0.32s ease,
     filter 0.32s ease,
     transform 0.32s ease,
     width 0.32s ease,
-    margin 0.32s ease;
+    height 0.32s ease;
 }
 
 .mini-button.mini-fade[data-visible="false"] {
   opacity: 0;
   width: 0;
-  height: 46px;
-  margin: 0;
+  height: 0;
+  /* Cancels the rail's gap so no empty slot is left behind. */
+  margin: 0 0 -10px 0;
   padding: 0;
   border-width: 0;
   pointer-events: none;
@@ -2674,4 +2678,67 @@ textarea {
 
 .mini-button.mini-fade[data-visible="false"] svg {
   opacity: 0;
+}
+
+/* Loading mark: the two halves of the logo swap widths, over and over. */
+.logo-loader {
+  display: grid;
+  place-items: center;
+  padding: 18px 0;
+}
+
+.logo-loader-mark {
+  position: relative;
+  width: 63px;
+  height: 109px;
+}
+
+.logo-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 2px;
+  background: linear-gradient(160deg, var(--burgundy) 0%, #4d0d22 100%);
+}
+
+.logo-bar-wide {
+  left: 0;
+  width: 44.5px;
+  animation: logo-swap-wide 1.9s ease-in-out infinite;
+}
+
+.logo-bar-slim {
+  right: 0;
+  width: 14px;
+  animation: logo-swap-slim 1.9s ease-in-out infinite;
+}
+
+@keyframes logo-swap-wide {
+  0%,
+  100% {
+    width: 44.5px;
+  }
+  50% {
+    width: 14px;
+  }
+}
+
+@keyframes logo-swap-slim {
+  0%,
+  100% {
+    width: 14px;
+  }
+  50% {
+    width: 44.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-bar {
+    animation: none;
+  }
+}
+
+[data-motion="off"] .logo-bar {
+  animation: none;
 }

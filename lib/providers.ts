@@ -108,13 +108,13 @@ export type ApifyRun = {
 };
 
 /** How many hashtag posts to scan for candidates before fetching their profiles. */
-const CANDIDATE_POOL = Number(process.env.APIFY_CANDIDATE_POOL ?? 2400);
+const CANDIDATE_POOL = Number(process.env.APIFY_CANDIDATE_POOL ?? 20000);
 
 /** How many profiles to read in total across all rounds. */
-const PROFILE_BUDGET = Number(process.env.APIFY_PROFILE_BUDGET ?? 900);
+const PROFILE_BUDGET = Number(process.env.APIFY_PROFILE_BUDGET ?? 6000);
 
 /** Profiles per round: small enough that a round finishes in a minute or so. */
-const PROFILE_BATCH = Number(process.env.APIFY_PROFILE_BATCH ?? 150);
+const PROFILE_BATCH = Number(process.env.APIFY_PROFILE_BATCH ?? 250);
 
 /** Keeps every call well inside a serverless function's time limit. */
 async function apifyFetch(url: string, init?: RequestInit): Promise<Response> {
@@ -144,15 +144,26 @@ async function startRun(input: Record<string, unknown>, stage: ApifyStage): Prom
   return { runId: data.data.id, datasetId: data.data.defaultDatasetId, stage };
 }
 
-const NICHE_SUFFIXES = ["blogger", "creator", "influencer", "daily", "life"];
+const NICHE_SUFFIXES = [
+  "blogger",
+  "creator",
+  "influencer",
+  "daily",
+  "life",
+  "style",
+  "gram",
+  "community",
+  "tips",
+  "addict",
+];
 
 /** Hashtag pages per run; more tags means a wider, more varied candidate pool. */
-const TAG_LIMIT = Number(process.env.APIFY_TAG_LIMIT ?? 30);
+const TAG_LIMIT = Number(process.env.APIFY_TAG_LIMIT ?? 60);
 
 /** Hashtags to scan: the niches themselves, the keyword, and city+niche combinations. */
 function discoveryTags(query: SearchQuery): string[] {
   const niches = query.categories?.includes(ALL)
-    ? ["influencer", "creator"]
+    ? ["influencer", "creator", "lifestyle", "fashion", "fitness", "travel", "food", "beauty"]
     : (query.categories ?? ["lifestyle"]);
   const cities = query.countries.includes(ALL)
     ? []
@@ -188,7 +199,8 @@ export async function startApifyRun(query: SearchQuery): Promise<ApifyRun> {
     {
       directUrls: tags.map((tag) => `https://www.instagram.com/explore/tags/${tag}/`),
       resultsType: "posts",
-      resultsLimit: CANDIDATE_POOL,
+      // resultsLimit counts per hashtag page, so the pool is split across them.
+      resultsLimit: Math.max(50, Math.ceil(CANDIDATE_POOL / Math.max(1, tags.length))),
     },
     "discover",
   );
@@ -217,12 +229,33 @@ export type RunStatus =
     }
   | { status: "failed"; detail: string };
 
-async function datasetItems<T>(datasetId: string, limit: number): Promise<T[]> {
+const PAGE_SIZE = 2000;
+
+/**
+ * Reads a dataset in pages. `fields` keeps the payload small — the candidate
+ * pool runs to tens of thousands of posts and only two of their keys matter.
+ */
+async function datasetItems<T>(
+  datasetId: string,
+  limit: number,
+  fields?: string[],
+): Promise<T[]> {
   const token = encodeURIComponent(process.env.APIFY_TOKEN!);
-  const res = await apifyFetch(
-    `https://api.apify.com/v2/datasets/${datasetId}/items?token=${token}&clean=true&limit=${limit}`,
-  );
-  return (await res.json()) as T[];
+  const select = fields?.length ? `&fields=${fields.join(",")}` : "";
+  const items: T[] = [];
+  // The whole poll has to answer inside the serverless window.
+  const deadline = Date.now() + 6_000;
+  while (items.length < limit && Date.now() < deadline) {
+    const page = Math.min(PAGE_SIZE, limit - items.length);
+    const res = await apifyFetch(
+      `https://api.apify.com/v2/datasets/${datasetId}/items?token=${token}&clean=true` +
+        `&limit=${page}&offset=${items.length}${select}`,
+    );
+    const batch = (await res.json()) as T[];
+    items.push(...batch);
+    if (batch.length < page) break;
+  }
+  return items;
 }
 
 /** One quick check of a started run; the client calls this until it settles. */
@@ -241,6 +274,7 @@ export async function pollApifyRun(run: ApifyRun, query: SearchQuery): Promise<R
     const posts = await datasetItems<{ ownerUsername?: string; locationName?: string }>(
       run.datasetId,
       CANDIDATE_POOL,
+      ["ownerUsername", "locationName"],
     );
     const wanted = query.countries.includes(ALL) ? [] : query.countries;
 
