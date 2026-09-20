@@ -39,6 +39,13 @@ brings the full bar back.
 **Settings → Animations** turns the intro, the page transitions and the highlight wave off for
 this browser; the system's own reduce-motion setting is always honoured on top of it.
 
+### Phone layout
+
+Below 900px the sidebar becomes a row of icons fixed at the bottom of the screen, the bar above
+it keeps only its actions, and Discover's search fields open from a **Filters** button as a panel.
+Dropdowns turn into sheets anchored above the navigation so they never open off-screen, cards go
+to one column, and result rows stack instead of squeezing four columns onto a phone.
+
 ### Keyboard
 
 | Key | Action |

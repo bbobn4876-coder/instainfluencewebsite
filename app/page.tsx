@@ -125,6 +125,7 @@ export default function Page() {
   // The bottom bar folds into round icons while scrolling down through a page.
   const [dockCompact, setDockCompact] = useState(false);
   const [miniFilters, setMiniFilters] = useState(false);
+  const [isNarrow, setIsNarrow] = useState(false);
   const [motion, setMotion] = useState(true);
   const lastScroll = useRef(0);
 
@@ -154,18 +155,31 @@ export default function Page() {
       .catch(() => undefined);
   }, []);
 
+  // Phone layout: the dock hides its fields and opens them as a panel instead.
   useEffect(() => {
-    let enabled = true;
+    const query = window.matchMedia("(max-width: 900px)");
+    const apply = () => setIsNarrow(query.matches);
+    apply();
+    query.addEventListener("change", apply);
+    return () => query.removeEventListener("change", apply);
+  }, []);
+
+  const motionLoaded = useRef(false);
+
+  useEffect(() => {
     try {
-      enabled = window.localStorage.getItem("motion") !== "off";
+      setMotion(window.localStorage.getItem("motion") !== "off");
     } catch {
       /* storage can be blocked; animations stay on */
     }
-    setMotion(enabled);
+    motionLoaded.current = true;
   }, []);
 
   useEffect(() => {
     document.documentElement.dataset.motion = motion ? "on" : "off";
+    // Never write on the first pass: that would overwrite the stored value with
+    // the default before it has been read back.
+    if (!motionLoaded.current) return;
     try {
       window.localStorage.setItem("motion", motion ? "on" : "off");
     } catch {
@@ -467,8 +481,8 @@ export default function Page() {
   }, [view]);
 
   useEffect(() => {
-    if (!dockCompact) setMiniFilters(false);
-  }, [dockCompact]);
+    if (!dockCompact && !isNarrow) setMiniFilters(false);
+  }, [dockCompact, isNarrow]);
 
   const visibleInbox =
     inboxFilter === "all" ? inbox : inbox.filter((m) => m.channel === inboxFilter);
@@ -1083,10 +1097,17 @@ export default function Page() {
         <div className="dock" data-compact={foldableDock && dockCompact}>
           {view === "discover" ? (
             <>
-              <div className="dock-fields">{searchFields}
+              <div className="dock-fields dock-search">{searchFields}
               </div>
               <div className="dock-actions">
                 <span className="dock-status">{t.discover.selectedCount(selectedIds.length)}</span>
+                <button
+                  className="btn btn-ghost only-mobile"
+                  aria-expanded={miniFilters}
+                  onClick={() => setMiniFilters((prev) => !prev)}
+                >
+                  {t.discover.filters}
+                </button>
                 <button
                   className="btn btn-ghost"
                   onClick={toggleSelectAll}
@@ -1169,7 +1190,7 @@ export default function Page() {
           ) : null}
         </div>
         {foldableDock && view === "discover" ? (
-          <div className="mini-panel" data-open={dockCompact && miniFilters}>
+          <div className="mini-panel" data-open={miniFilters && (dockCompact || isNarrow)}>
             {searchFields}
           </div>
         ) : null}
