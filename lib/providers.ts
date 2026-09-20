@@ -170,7 +170,6 @@ export async function startApifyRun(query: SearchQuery): Promise<ApifyRun> {
       directUrls: tags.map((tag) => `https://www.instagram.com/explore/tags/${tag}/`),
       resultsType: "posts",
       resultsLimit: Math.max(CANDIDATE_POOL, (query.limit ?? 24) * 4),
-      searchLimit: 0,
     },
     "discover",
   );
@@ -183,7 +182,6 @@ async function startDetailsRun(usernames: string[]): Promise<ApifyRun> {
       directUrls: usernames.map((name) => `https://www.instagram.com/${name}/`),
       resultsType: "details",
       resultsLimit: usernames.length,
-      searchLimit: 0,
     },
     "details",
   );
