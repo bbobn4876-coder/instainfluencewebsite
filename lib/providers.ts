@@ -1,4 +1,4 @@
-import { ALL } from "./countries";
+import { ALL, countryByCode } from "./countries";
 import { extractEmails, extractLinks, extractPhones } from "./contacts";
 import { mockSearch } from "./mock";
 import type { Influencer, SearchQuery } from "./types";
@@ -87,7 +87,11 @@ function toInfluencer(item: ApifyItem, query: SearchQuery, source: Influencer["s
   };
 }
 
-export type ApifyRun = { runId: string; datasetId: string };
+export type ApifyStage = "discover" | "details";
+export type ApifyRun = { runId: string; datasetId: string; stage: ApifyStage };
+
+/** How many hashtag posts to scan for candidates before fetching their profiles. */
+const CANDIDATE_POOL = Number(process.env.APIFY_CANDIDATE_POOL ?? 240);
 
 /** Keeps every call well inside a serverless function's time limit. */
 async function apifyFetch(url: string, init?: RequestInit): Promise<Response> {
@@ -99,47 +103,89 @@ async function apifyFetch(url: string, init?: RequestInit): Promise<Response> {
   return res;
 }
 
-/**
- * Starts the Instagram scraper and returns straight away. A synchronous run
- * takes a minute or more, which no serverless host will wait for, so the run is
- * polled from the client through pollApifyRun instead.
- */
-export async function startApifyRun(query: SearchQuery): Promise<ApifyRun> {
+async function startRun(input: Record<string, unknown>, stage: ApifyStage): Promise<ApifyRun> {
   const token = process.env.APIFY_TOKEN!;
   const actor = process.env.APIFY_ACTOR_ID ?? "apify~instagram-scraper";
-  const limit = Math.min(query.limit ?? 24, 100);
-  // "all" contributes no search term, which keeps the actor's query short.
-  const geoTerms = query.countries.includes(ALL) ? [] : query.countries;
-  const nicheTerms = query.categories?.includes(ALL) ? [] : (query.categories ?? []);
-  const terms = [query.keyword, ...nicheTerms, ...geoTerms].filter(Boolean).join(" ");
-
   const res = await apifyFetch(
     `https://api.apify.com/v2/acts/${actor}/runs?token=${encodeURIComponent(token)}`,
     {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        search: terms,
-        searchType: "user",
-        searchLimit: limit,
-        resultsType: "details",
-        resultsLimit: limit,
-        addParentData: false,
-      }),
+      body: JSON.stringify({ addParentData: false, ...input }),
     },
   );
-
   const data = (await res.json()) as { data?: { id?: string; defaultDatasetId?: string } };
   if (!data.data?.id || !data.data.defaultDatasetId) {
     throw new Error("Apify did not return a run id.");
   }
-  return { runId: data.data.id, datasetId: data.data.defaultDatasetId };
+  return { runId: data.data.id, datasetId: data.data.defaultDatasetId, stage };
+}
+
+/** Hashtags to scan: the niches themselves, the keyword, and city+niche combinations. */
+function discoveryTags(query: SearchQuery): string[] {
+  const niches = query.categories?.includes(ALL)
+    ? ["influencer", "creator"]
+    : (query.categories ?? ["lifestyle"]);
+  const cities = query.countries.includes(ALL)
+    ? []
+    : query.countries.flatMap((code) => countryByCode(code)?.cities.slice(0, 2) ?? []);
+
+  const clean = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const tags = new Set<string>();
+
+  if (query.keyword?.trim()) tags.add(clean(query.keyword));
+  for (const niche of niches) {
+    tags.add(clean(niche));
+    // City tags are where smaller, local creators actually show up.
+    for (const city of cities) tags.add(`${clean(city)}${clean(niche)}`);
+  }
+  return [...tags].filter(Boolean).slice(0, 8);
+}
+
+/**
+ * Stage one: collect candidate usernames from hashtag pages. Instagram's own
+ * user search only ever returns a handful of very large accounts, so a follower
+ * range like 3k–10k came back almost empty; posts under a hashtag are where
+ * smaller creators are.
+ */
+export async function startApifyRun(query: SearchQuery): Promise<ApifyRun> {
+  const tags = discoveryTags(query);
+  return startRun(
+    {
+      directUrls: tags.map((tag) => `https://www.instagram.com/explore/tags/${tag}/`),
+      resultsType: "posts",
+      resultsLimit: Math.max(CANDIDATE_POOL, (query.limit ?? 24) * 4),
+      searchLimit: 0,
+    },
+    "discover",
+  );
+}
+
+/** Stage two: the profiles behind those posts, with follower counts and bios. */
+async function startDetailsRun(usernames: string[]): Promise<ApifyRun> {
+  return startRun(
+    {
+      directUrls: usernames.map((name) => `https://www.instagram.com/${name}/`),
+      resultsType: "details",
+      resultsLimit: usernames.length,
+      searchLimit: 0,
+    },
+    "details",
+  );
 }
 
 export type RunStatus =
-  | { status: "running" }
-  | { status: "done"; influencers: Influencer[] }
+  | { status: "running"; run: ApifyRun; scanned?: number }
+  | { status: "done"; influencers: Influencer[]; scanned: number; matched: number }
   | { status: "failed"; detail: string };
+
+async function datasetItems<T>(datasetId: string, limit: number): Promise<T[]> {
+  const token = encodeURIComponent(process.env.APIFY_TOKEN!);
+  const res = await apifyFetch(
+    `https://api.apify.com/v2/datasets/${datasetId}/items?token=${token}&clean=true&limit=${limit}`,
+  );
+  return (await res.json()) as T[];
+}
 
 /** One quick check of a started run; the client calls this until it settles. */
 export async function pollApifyRun(run: ApifyRun, query: SearchQuery): Promise<RunStatus> {
@@ -148,18 +194,33 @@ export async function pollApifyRun(run: ApifyRun, query: SearchQuery): Promise<R
   const data = (await res.json()) as { data?: { status?: string } };
   const state = data.data?.status ?? "UNKNOWN";
 
-  if (state === "READY" || state === "RUNNING") return { status: "running" };
+  if (state === "READY" || state === "RUNNING") return { status: "running", run };
   if (state !== "SUCCEEDED") {
     return { status: "failed", detail: `The Apify run ${state.toLowerCase()}.` };
   }
 
-  const items = (await (
-    await apifyFetch(
-      `https://api.apify.com/v2/datasets/${run.datasetId}/items?token=${token}&clean=true&limit=${Math.min(query.limit ?? 24, 100)}`,
-    )
-  ).json()) as ApifyItem[];
+  if (run.stage === "discover") {
+    const posts = await datasetItems<{ ownerUsername?: string }>(run.datasetId, CANDIDATE_POOL);
+    const usernames = [...new Set(posts.map((p) => p.ownerUsername).filter(Boolean))] as string[];
+    if (usernames.length === 0) {
+      return { status: "failed", detail: "No accounts found under those hashtags." };
+    }
+    // Apify bills per profile, so cap how many are looked up in detail.
+    const capped = usernames.slice(0, Math.min(CANDIDATE_POOL, 150));
+    return { status: "running", run: await startDetailsRun(capped), scanned: capped.length };
+  }
 
-  return { status: "done", influencers: shapeApifyItems(items, query) };
+  const items = await datasetItems<ApifyItem>(run.datasetId, 200);
+  const all = items
+    .map((item) => toInfluencer(item, query, "apify"))
+    .filter((i): i is Influencer => i !== null);
+  const matched = shapeApifyItems(items, query);
+  return {
+    status: "done",
+    influencers: matched.slice(0, query.limit ?? 24),
+    scanned: all.length,
+    matched: matched.length,
+  };
 }
 
 function shapeApifyItems(items: ApifyItem[], query: SearchQuery): Influencer[] {

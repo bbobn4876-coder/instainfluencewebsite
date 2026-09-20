@@ -343,17 +343,27 @@ export default function Page() {
       while (data.status === "running" && Date.now() < deadline) {
         setNotice(t.discover.stillRunning);
         await new Promise((resolve) => setTimeout(resolve, 3000));
-        data = await ask({ runId: String(data.runId), datasetId: String(data.datasetId) });
+        data = await ask({
+          runId: String(data.runId),
+          datasetId: String(data.datasetId),
+          stage: String(data.stage ?? "discover"),
+        });
       }
 
       if (data.status === "running") {
         throw new Error(t.discover.tookTooLong);
       }
 
-      setInfluencers((data.influencers as Influencer[]) ?? []);
+      const found = (data.influencers as Influencer[]) ?? [];
+      setInfluencers(found);
       setSelectedIds([]);
       setOnlySelected(false);
-      setNotice((data.notice as string) ?? null);
+      // Say how wide the net was, so a small result set is explainable.
+      const scanned = data.scanned as number | undefined;
+      setNotice(
+        (data.notice as string) ??
+          (scanned && found.length < 5 ? t.discover.scanned(scanned, found.length) : null),
+      );
       setView("discover");
     } catch (error) {
       setInfluencers([]);

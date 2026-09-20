@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   const { user, response } = await requireUser();
   if (!user) return response;
 
-  let payload: Partial<SearchQuery> & { runId?: string; datasetId?: string };
+  let payload: Partial<SearchQuery> & { runId?: string; datasetId?: string; stage?: string };
   try {
     payload = await request.json();
   } catch {
@@ -46,7 +46,11 @@ export async function POST(request: Request) {
   if (activeProvider() === "apify") {
     const run =
       typeof payload.runId === "string" && typeof payload.datasetId === "string"
-        ? { runId: payload.runId, datasetId: payload.datasetId }
+        ? {
+            runId: payload.runId,
+            datasetId: payload.datasetId,
+            stage: payload.stage === "details" ? ("details" as const) : ("discover" as const),
+          }
         : null;
 
     try {
@@ -57,7 +61,8 @@ export async function POST(request: Request) {
 
       const state = await pollApifyRun(run, query);
       if (state.status === "running") {
-        return NextResponse.json({ provider: "apify", status: "running", ...run });
+        // The run may have moved from collecting candidates to reading profiles.
+        return NextResponse.json({ provider: "apify", status: "running", ...state.run });
       }
       if (state.status === "failed") {
         const fallback = await searchInfluencers(query);
@@ -67,6 +72,8 @@ export async function POST(request: Request) {
         provider: "apify",
         status: "done",
         influencers: state.influencers,
+        scanned: state.scanned,
+        matched: state.matched,
       });
     } catch (error) {
       // A broken token or a network problem should not leave the page empty.

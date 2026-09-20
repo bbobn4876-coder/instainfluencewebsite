@@ -18,6 +18,8 @@ export const STRINGS = {
       empty: "Set your filters in the bar below and run a search.",
       loading: "Parsing profiles…",
       stillRunning: "Scraping Instagram — this usually takes a minute or two. The page updates by itself.",
+      scanned: (scanned: number, matched: number) =>
+        `Looked at ${scanned} accounts under those hashtags, ${matched} fit the follower range. Widen the range or add niches to see more.`,
       tookTooLong: "The scraper is still running after four minutes. Try a narrower search, or check the run in the Apify console.",
       geo: "geo",
       niche: "niche",
@@ -348,6 +350,8 @@ Best,
       empty: "Задайте фильтры в панели внизу и запустите поиск.",
       loading: "Собираем профили…",
       stillRunning: "Идёт сбор из Instagram — обычно занимает минуту-две. Страница обновится сама.",
+      scanned: (scanned: number, matched: number) =>
+        `Просмотрено ${scanned} аккаунтов по этим хэштегам, под диапазон подписчиков подошло ${matched}. Расширьте диапазон или добавьте ниши.`,
       tookTooLong: "Сбор идёт дольше четырёх минут. Сузьте запрос или посмотрите статус запуска в консоли Apify.",
       geo: "гео",
       niche: "ниша",

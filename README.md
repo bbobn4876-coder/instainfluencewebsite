@@ -123,8 +123,12 @@ the Apify actor gets a short search string instead of dozens of joined keywords.
 Without credentials the app runs on a deterministic generated dataset, so the whole flow is
 usable offline. Configure either provider in `.env.local` to get real profiles:
 
-- **Apify** (`APIFY_TOKEN`) — keyword/geo search across profiles, returns bios, follower counts,
-  business email and external URL. A scraper run takes a minute or more, far past the ~10s limit
+- **Apify** (`APIFY_TOKEN`) — discovery runs in two stages: posts under hashtags built from the
+  chosen niches, keyword and city+niche combinations are scanned for candidate accounts, then
+  those profiles are read for bios, follower counts, contacts and post metrics. Instagram's own
+  user search only ever returns a handful of very large accounts, which is why a range like
+  3k–10k used to come back almost empty. `APIFY_CANDIDATE_POOL` (default 240) sets how wide the
+  first stage casts its net. A scraper run takes a minute or more, far past the ~10s limit
   of a serverless function, so `/api/search` only starts the run and hands back a run id; the
   client polls the same endpoint until it settles. If the run fails or Apify is unreachable, the
   page falls back to sample data with the reason shown instead of an empty screen.
