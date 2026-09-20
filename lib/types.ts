@@ -9,7 +9,10 @@ export type Influencer = {
   fullName: string;
   biography: string;
   followers: number;
-  engagementRate: number; // percent
+  engagementRate: number; // percent, from the medians below when available
+  medianLikes?: number;
+  medianComments?: number;
+  medianReelViews?: number;
   country: string; // ISO-3166 alpha-2
   city?: string;
   category: string;

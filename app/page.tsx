@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ALL, CATEGORIES, COUNTRIES } from "@/lib/countries";
+import { ALL, CATEGORIES, COUNTRIES, countryByCode } from "@/lib/countries";
 import { dict, type Language } from "@/lib/i18n";
 import { MAIL_PROVIDERS, guessProvider, providerById } from "@/lib/mailProviders";
 import Select from "./Select";
@@ -11,6 +11,7 @@ import Landing from "./Landing";
 import GuideModal from "./GuideModal";
 import TokenEditor from "./TokenEditor";
 import { TOKENS } from "@/lib/tokens";
+import { csvFileName, toCsv } from "@/lib/exportTable";
 import type { PublicSettings } from "@/lib/settings";
 import type { InboxChannel, InboxMessage, ChannelStatus } from "@/lib/inbox";
 import type { Influencer, OutreachResult } from "@/lib/types";
@@ -607,6 +608,18 @@ export default function Page() {
   const visibleInfluencers = onlySelected ? selected : influencers;
 
   const allSelected = influencers.length > 0 && selectedIds.length === influencers.length;
+
+  const downloadTable = () => {
+    if (selected.length === 0) return;
+    // A BOM keeps Excel from mangling non-ASCII names.
+    const blob = new Blob(["\uFEFF", toCsv(selected)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = csvFileName(selected.length);
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   const toggleSelectAll = () =>
     setSelectedIds(allSelected ? [] : influencers.map((i) => i.id));
@@ -1428,6 +1441,20 @@ export default function Page() {
               <div className="dock-actions">
                 <span className="dock-status">{t.discover.selectedCount(selectedIds.length)}</span>
                 <button
+                  className="icon-button"
+                  data-visible={selectedIds.length > 0}
+                  aria-hidden={selectedIds.length === 0}
+                  tabIndex={selectedIds.length > 0 ? 0 : -1}
+                  title={t.discover.download}
+                  aria-label={t.discover.download}
+                  onClick={downloadTable}
+                >
+                  <svg viewBox="0 0 20 20" aria-hidden>
+                    <path d="M10 3.5v9M6.5 9.5l3.5 3.5 3.5-3.5" />
+                    <path d="M4 16h12" />
+                  </svg>
+                </button>
+                <button
                   className="btn btn-ghost only-mobile"
                   aria-expanded={miniFilters}
                   onClick={() => setMiniFilters((prev) => !prev)}
@@ -1671,6 +1698,12 @@ function InfluencerCard({
   onInfo: () => void;
   labels: { followers: string; engagement: string; nicheLabel: string; info: string };
 }) {
+  const country = countryByCode(influencer.country);
+  // Where the profile is from, which the cards never said before.
+  const place = [influencer.city, country ? `${country.flag} ${country.name}` : influencer.country]
+    .filter(Boolean)
+    .join(", ");
+
   return (
     <div
       className="card"
@@ -1691,7 +1724,7 @@ function InfluencerCard({
           <div className="handle">@{influencer.username}</div>
           <div className="card-name">
             {influencer.fullName}
-            {influencer.city ? ` · ${influencer.city}` : ""}
+            {place ? ` · ${place}` : ""}
           </div>
         </div>
         <div className="card-actions">

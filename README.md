@@ -108,6 +108,11 @@ to one column, and result rows stack instead of squeezing four columns onto a ph
 | `Alt` + `1` … `5` | Same, and works while a field has focus |
 | `⌘/Ctrl` + `B`, `[` | Collapse the sidebar to icons (remembered between visits); hovering the logo shows the same toggle |
 
+Selecting profiles reveals a download button beside the bar, which saves the selection as a CSV:
+Creator, IG handle, Profile URL, Geo, Followers, Median likes, Median comments, ER % (median),
+Median reel views and an empty Price column to fill in by hand. The medians come from the posts
+the scraper returns; the engagement rate is computed from them, not taken from the provider.
+
 Geo and niche both take several values at once, or **All**, which drops that constraint
 entirely. The search spreads its result limit across every country/niche combination and merges
 the results by follower count; with All selected the term is left out of the provider query, so

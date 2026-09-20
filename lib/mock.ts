@@ -107,13 +107,21 @@ function mockSearchOne(
     const biography = bioParts.join("\n");
     const externalUrl = extraLinks.length ? `https://${extraLinks[extraLinks.length - 1]}` : undefined;
 
+    // Engagement is derived from the medians, the same way the table computes it.
+    const medianLikes = Math.round(followers * (0.01 + rnd() * 0.06));
+    const medianComments = Math.round(medianLikes * (0.005 + rnd() * 0.04));
+    const medianReelViews = Math.round(followers * (0.3 + rnd() * 2.2));
+
     out.push({
       id: `mock:${username}`,
       username,
       fullName: `${first[0].toUpperCase()}${first.slice(1)} ${last[0].toUpperCase()}${last.slice(1)}`,
       biography,
       followers,
-      engagementRate: Number((1 + rnd() * 7).toFixed(2)),
+      engagementRate: Number((((medianLikes + medianComments) / followers) * 100).toFixed(2)),
+      medianLikes,
+      medianComments,
+      medianReelViews,
       country: country.code,
       city,
       category,

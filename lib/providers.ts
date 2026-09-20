@@ -11,6 +11,15 @@ export function activeProvider(): ProviderName {
   return "mock";
 }
 
+type ApifyPost = {
+  likesCount?: number;
+  commentsCount?: number;
+  videoViewCount?: number;
+  videoPlayCount?: number;
+  type?: string;
+  productType?: string;
+};
+
 type ApifyItem = {
   id?: string;
   username?: string;
@@ -22,18 +31,49 @@ type ApifyItem = {
   businessEmail?: string;
   businessPhoneNumber?: string;
   businessCategoryName?: string;
+  latestPosts?: ApifyPost[];
 };
+
+function median(values: number[]): number | undefined {
+  const sorted = values.filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
+  if (sorted.length === 0) return undefined;
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2
+    ? sorted[middle]
+    : Math.round((sorted[middle - 1] + sorted[middle]) / 2);
+}
+
+/** Medians over the posts the actor returns, and the engagement rate they imply. */
+function postMetrics(posts: ApifyPost[] | undefined, followers: number) {
+  const list = posts ?? [];
+  const medianLikes = median(list.map((p) => p.likesCount ?? NaN));
+  const medianComments = median(list.map((p) => p.commentsCount ?? NaN));
+  const reels = list.filter((p) => p.type === "Video" || p.productType === "clips");
+  const medianReelViews = median(
+    reels.map((p) => p.videoPlayCount ?? p.videoViewCount ?? NaN),
+  );
+  const engagementRate =
+    followers > 0 && (medianLikes !== undefined || medianComments !== undefined)
+      ? Number(((((medianLikes ?? 0) + (medianComments ?? 0)) / followers) * 100).toFixed(2))
+      : 0;
+  return { medianLikes, medianComments, medianReelViews, engagementRate };
+}
 
 function toInfluencer(item: ApifyItem, query: SearchQuery, source: Influencer["source"]): Influencer | null {
   if (!item.username) return null;
   const bio = item.biography ?? "";
+  const followers = item.followersCount ?? 0;
+  const metrics = postMetrics(item.latestPosts, followers);
   return {
     id: `${source}:${item.id ?? item.username}`,
     username: item.username,
     fullName: item.fullName ?? item.username,
     biography: bio,
-    followers: item.followersCount ?? 0,
-    engagementRate: 0,
+    followers,
+    engagementRate: metrics.engagementRate,
+    medianLikes: metrics.medianLikes,
+    medianComments: metrics.medianComments,
+    medianReelViews: metrics.medianReelViews,
     country: query.countries.includes(ALL) ? "" : (query.countries[0] ?? ""),
     category:
       item.businessCategoryName ??
