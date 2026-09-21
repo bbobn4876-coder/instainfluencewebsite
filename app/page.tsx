@@ -7,7 +7,7 @@ import { MAIL_PROVIDERS, guessProvider, providerById } from "@/lib/mailProviders
 import Select from "./Select";
 import LogoLoader from "./LogoLoader";
 import { useFilterTransition } from "./useFilterTransition";
-import { limitsOf, type SubscriptionConfig } from "@/lib/plans";
+import { CURRENCY_OF, formatPrice, priceOf, type SubscriptionConfig } from "@/lib/plans";
 import AdminUserModal, { type AdminStats } from "./AdminUserModal";
 import SubscribeCallout from "./SubscribeCallout";
 import ProfileModal from "./ProfileModal";
@@ -1446,7 +1446,11 @@ export default function Page() {
                         />
                       </div>
                       <p className="hint">
-                        {t.plan.total}: ${limitsOf(subscription.config).price}
+                        {t.plan.total}:{" "}
+                        {formatPrice(
+                          priceOf(subscription.config, CURRENCY_OF[language] ?? "usd"),
+                          CURRENCY_OF[language] ?? "usd",
+                        )}
                         {t.plan.perMonth} · {t.plan.sendersValue(subscription.config.senders)} ·{" "}
                         {t.plan.depthNames[subscription.config.depth]}
                       </p>

@@ -11,12 +11,27 @@
 export type VolumeId = "starter" | "growth" | "scale";
 export type DepthId = "standard" | "deep";
 
-export type VolumeTier = { id: VolumeId; dailyProfiles: number; price: number };
+/**
+ * Prices are set per currency rather than converted: a rouble price is its own
+ * round number, not a dollar figure run through a rate that drifts.
+ */
+export type Currency = "usd" | "rub";
+export type Price = Record<Currency, number>;
+
+export const CURRENCY_OF: Record<string, Currency> = { en: "usd", ru: "rub" };
+
+export function formatPrice(amount: number, currency: Currency): string {
+  return currency === "rub"
+    ? `${amount.toLocaleString("ru-RU")} ₽`
+    : `$${amount.toLocaleString("en-US")}`;
+}
+
+export type VolumeTier = { id: VolumeId; dailyProfiles: number; price: Price };
 
 export const VOLUMES: Record<VolumeId, VolumeTier> = {
-  starter: { id: "starter", dailyProfiles: 500, price: 19 },
-  growth: { id: "growth", dailyProfiles: 2500, price: 44 },
-  scale: { id: "scale", dailyProfiles: 10000, price: 99 },
+  starter: { id: "starter", dailyProfiles: 500, price: { usd: 19, rub: 1790 } },
+  growth: { id: "growth", dailyProfiles: 2500, price: { usd: 44, rub: 3990 } },
+  scale: { id: "scale", dailyProfiles: 10000, price: { usd: 99, rub: 8990 } },
 };
 
 export const VOLUME_ORDER: VolumeId[] = ["starter", "growth", "scale"];
@@ -24,18 +39,18 @@ export const VOLUME_ORDER: VolumeId[] = ["starter", "growth", "scale"];
 /** One sender is included; every extra one is billed. */
 export const SENDER_INCLUDED = 1;
 export const SENDER_MAX = 10;
-export const SENDER_PRICE = 6;
+export const SENDER_PRICE: Price = { usd: 6, rub: 590 };
 
 /**
  * How far the search reaches. "Deep" runs the wider, faster crawl — which
  * costs us more per search, hence the surcharge.
  */
-export const DEPTHS: Record<DepthId, { id: DepthId; price: number }> = {
-  standard: { id: "standard", price: 0 },
-  deep: { id: "deep", price: 29 },
+export const DEPTHS: Record<DepthId, { id: DepthId; price: Price }> = {
+  standard: { id: "standard", price: { usd: 0, rub: 0 } },
+  deep: { id: "deep", price: { usd: 29, rub: 2690 } },
 };
 
-export const PRIORITY_SUPPORT_PRICE = 15;
+export const PRIORITY_SUPPORT_PRICE: Price = { usd: 15, rub: 1390 };
 
 export type SubscriptionConfig = {
   volume: VolumeId;
@@ -76,17 +91,23 @@ export function normalizeConfig(input: unknown): SubscriptionConfig {
 /** Every line of the bill, so the page and the server always agree. */
 export type PriceLine = { key: string; amount: number };
 
-export function priceLines(config: SubscriptionConfig): PriceLine[] {
-  const lines: PriceLine[] = [{ key: `volume.${config.volume}`, amount: VOLUMES[config.volume].price }];
+export function priceLines(config: SubscriptionConfig, currency: Currency = "usd"): PriceLine[] {
+  const lines: PriceLine[] = [
+    { key: `volume.${config.volume}`, amount: VOLUMES[config.volume].price[currency] },
+  ];
   const extra = config.senders - SENDER_INCLUDED;
-  if (extra > 0) lines.push({ key: "senders", amount: extra * SENDER_PRICE });
-  if (config.depth !== "standard") lines.push({ key: "depth", amount: DEPTHS[config.depth].price });
-  if (config.prioritySupport) lines.push({ key: "support", amount: PRIORITY_SUPPORT_PRICE });
+  if (extra > 0) lines.push({ key: "senders", amount: extra * SENDER_PRICE[currency] });
+  if (config.depth !== "standard") {
+    lines.push({ key: "depth", amount: DEPTHS[config.depth].price[currency] });
+  }
+  if (config.prioritySupport) {
+    lines.push({ key: "support", amount: PRIORITY_SUPPORT_PRICE[currency] });
+  }
   return lines;
 }
 
-export function priceOf(config: SubscriptionConfig): number {
-  return priceLines(config).reduce((total, line) => total + line.amount, 0);
+export function priceOf(config: SubscriptionConfig, currency: Currency = "usd"): number {
+  return priceLines(config, currency).reduce((total, line) => total + line.amount, 0);
 }
 
 /** What the configuration actually unlocks. */

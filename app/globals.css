@@ -3117,6 +3117,17 @@ textarea {
   }
 }
 
+/* The gradient is brightest near the top-left, which is exactly where the
+   wordmark sits — a scrim there keeps it legible without dimming the panel. */
+.subscribe-aside-inner::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 190px;
+  background: linear-gradient(180deg, rgba(8, 5, 7, 0.72), rgba(8, 5, 7, 0));
+  pointer-events: none;
+}
+
 .subscribe-aside-inner {
   position: relative;
   z-index: 2;
@@ -3128,6 +3139,7 @@ textarea {
 }
 
 .subscribe-brand {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -3140,6 +3152,7 @@ textarea {
 .subscribe-brand img {
   width: 20px;
   height: auto;
+  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.7));
 }
 
 .subscribe-summary {

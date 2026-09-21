@@ -2,13 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  CURRENCY_OF,
   DEFAULT_CONFIG,
   DEPTHS,
   SENDER_INCLUDED,
   SENDER_MAX,
   SENDER_PRICE,
   VOLUMES,
+  PRIORITY_SUPPORT_PRICE,
   VOLUME_ORDER,
+  formatPrice,
   priceLines,
   priceOf,
   type DepthId,
@@ -61,8 +64,10 @@ export default function Subscribe() {
     }).catch(() => undefined);
   }, []);
 
-  const lines = useMemo(() => priceLines(config), [config]);
-  const total = useMemo(() => priceOf(config), [config]);
+  const currency = CURRENCY_OF[language] ?? "usd";
+  const lines = useMemo(() => priceLines(config, currency), [config, currency]);
+  const total = useMemo(() => priceOf(config, currency), [config, currency]);
+  const money = useCallback((amount: number) => formatPrice(amount, currency), [currency]);
   const changed = useMemo(() => JSON.stringify(saved) !== JSON.stringify(config), [saved, config]);
 
   const submit = useCallback(async () => {
@@ -115,7 +120,7 @@ export default function Subscribe() {
                     {t.lineLabels[line.key as keyof typeof t.lineLabels] ?? line.key}
                     {line.key === "senders" ? ` · ${t.sendersValue(config.senders)}` : ""}
                   </span>
-                  <b>${line.amount}</b>
+                  <b>{money(line.amount)}</b>
                 </li>
               ))}
               {config.senders === SENDER_INCLUDED ? (
@@ -129,7 +134,7 @@ export default function Subscribe() {
             <div className="subscribe-total">
               <span>{t.total}</span>
               <p>
-                <b>${total}</b>
+                <b>{money(total)}</b>
                 <small>{t.perMonth}</small>
               </p>
             </div>
@@ -173,7 +178,7 @@ export default function Subscribe() {
                   <em>{t.perDay(VOLUMES[id].dailyProfiles)}</em>
                   <small>{t.volumeBody[id]}</small>
                 </span>
-                <span className="option-price">${VOLUMES[id].price}</span>
+                <span className="option-price">{money(VOLUMES[id].price[currency])}</span>
               </button>
             ))}
           </div>
@@ -203,7 +208,7 @@ export default function Subscribe() {
             <span className="stepper-note">
               {config.senders === SENDER_INCLUDED
                 ? t.sendersIncluded
-                : `+$${(config.senders - SENDER_INCLUDED) * SENDER_PRICE}${t.perMonth}`}
+                : `+${money((config.senders - SENDER_INCLUDED) * SENDER_PRICE[currency])}${t.perMonth}`}
             </span>
           </div>
         </section>
@@ -225,7 +230,9 @@ export default function Subscribe() {
                   <small>{t.depthBody[id]}</small>
                 </span>
                 <span className="option-price">
-                  {DEPTHS[id].price ? `+$${DEPTHS[id].price}` : t.included}
+                  {DEPTHS[id].price[currency]
+                    ? `+${money(DEPTHS[id].price[currency])}`
+                    : t.included}
                 </span>
               </button>
             ))}
@@ -247,7 +254,9 @@ export default function Subscribe() {
                 <span className="option-body">
                   <b>{on ? t.supportOn : t.supportOff}</b>
                 </span>
-                <span className="option-price">{on ? "+$15" : t.included}</span>
+                <span className="option-price">
+                  {on ? `+${money(PRIORITY_SUPPORT_PRICE[currency])}` : t.included}
+                </span>
               </button>
             ))}
           </div>
