@@ -1216,19 +1216,29 @@ export default function Page() {
                               </div>
                             </div>
 
-                            <div className="chips">
-                              <span className={`chip ${account.smtp ? "chip-on" : "chip-off"}`}>
-                                {t.admin.mail}
-                              </span>
-                              <span className={`chip ${account.imap ? "chip-on" : "chip-off"}`}>
-                                {t.admin.imap}
-                              </span>
-                              <span className={`chip ${account.telegram ? "chip-on" : "chip-off"}`}>
-                                {t.admin.telegram}
-                              </span>
+                            <div className="admin-actions">
+                              <div className="chips">
+                                {(
+                                  [
+                                    [t.admin.mail, account.smtp],
+                                    [t.admin.imap, account.imap],
+                                    [t.admin.telegram, account.telegram],
+                                  ] as [string, boolean][]
+                                ).map(([label, on]) => (
+                                  <span
+                                    key={label}
+                                    className="chip status-chip"
+                                    data-on={on}
+                                    title={on ? t.admin.connected : t.admin.notConnected}
+                                  >
+                                    <i className="status-dot" aria-hidden />
+                                    {label}
+                                  </span>
+                                ))}
+                              </div>
                               {account.isAdmin ? null : (
                                 <button
-                                  className="btn btn-danger"
+                                  className="btn btn-danger btn-sm"
                                   onClick={() => removeAccount(account)}
                                 >
                                   {t.admin.remove}

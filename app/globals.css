@@ -2153,8 +2153,47 @@ textarea {
   color: var(--muted);
 }
 
-.admin-user .chips {
+.admin-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin-left: auto;
+}
+
+/* A status chip reads the same whether it is on or off: only the dot and the
+   border change, so the labels stay legible instead of fading out. */
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.status-chip[data-on="true"] {
+  color: #e9c7d3;
+  border-color: rgba(154, 34, 70, 0.75);
+  background: rgba(109, 19, 48, 0.3);
+}
+
+.status-chip[data-on="true"] .status-dot {
+  background: #9c2347;
+  box-shadow: 0 0 0 3px rgba(156, 35, 71, 0.22);
+}
+
+.btn-sm {
+  padding: 7px 14px;
+  font-size: 12px;
 }
 
 .admin-badge {
@@ -2163,15 +2202,6 @@ textarea {
   font-size: 11px;
   background: linear-gradient(135deg, var(--burgundy-soft), var(--burgundy));
   color: #fff;
-}
-
-.chip-on {
-  border-color: rgba(90, 190, 130, 0.4);
-  color: #b9e8c9;
-}
-
-.chip-off {
-  opacity: 0.5;
 }
 
 /* ---------- legal ---------- */
@@ -2680,56 +2710,76 @@ textarea {
   opacity: 0;
 }
 
-/* Loading mark: the two halves of the logo swap widths, over and over. */
+/* Loading mark: the two halves of the logo trade places — each one grows to
+   the other's width while it slides across, so the pair keeps swapping. */
 .logo-loader {
   display: grid;
   place-items: center;
-  padding: 18px 0;
+  padding: 26px 0;
 }
 
 .logo-loader-mark {
   position: relative;
-  width: 63px;
-  height: 109px;
+  width: 72px;
+  height: 118px;
 }
 
 .logo-bar {
   position: absolute;
   top: 0;
   bottom: 0;
-  border-radius: 2px;
-  background: linear-gradient(160deg, var(--burgundy) 0%, #4d0d22 100%);
+  border-radius: 3px;
+  border: 1px solid #9a2246;
+  background: linear-gradient(180deg, #6d1330 0%, #9c2347 100%);
+  box-shadow: 0 0 22px rgba(156, 35, 71, 0.35);
 }
 
 .logo-bar-wide {
   left: 0;
-  width: 44.5px;
-  animation: logo-swap-wide 1.9s ease-in-out infinite;
+  width: 51px;
+  animation: logo-swap-wide 2.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
 
 .logo-bar-slim {
   right: 0;
-  width: 14px;
-  animation: logo-swap-slim 1.9s ease-in-out infinite;
+  width: 16px;
+  animation: logo-swap-slim 2.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
 
+/* The wide bar shrinks and leans away as the slim one takes its place. */
 @keyframes logo-swap-wide {
   0%,
-  100% {
-    width: 44.5px;
+  8% {
+    width: 51px;
+    transform: scaleY(1);
   }
-  50% {
-    width: 14px;
+  42%,
+  58% {
+    width: 16px;
+    transform: scaleY(0.9);
+  }
+  92%,
+  100% {
+    width: 51px;
+    transform: scaleY(1);
   }
 }
 
 @keyframes logo-swap-slim {
   0%,
-  100% {
-    width: 14px;
+  8% {
+    width: 16px;
+    transform: scaleY(0.9);
   }
-  50% {
-    width: 44.5px;
+  42%,
+  58% {
+    width: 51px;
+    transform: scaleY(1);
+  }
+  92%,
+  100% {
+    width: 16px;
+    transform: scaleY(0.9);
   }
 }
 
