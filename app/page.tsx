@@ -12,6 +12,7 @@ import AdminUserModal, { type AdminStats } from "./AdminUserModal";
 import SubscribeCallout from "./SubscribeCallout";
 import Link from "next/link";
 import { session } from "./sessionCache";
+import Welcome from "./Welcome";
 import ProfileModal from "./ProfileModal";
 import AuthModal, { type AuthMode } from "./AuthModal";
 import Landing from "./Landing";
@@ -179,6 +180,7 @@ export default function Page() {
   const [admin, setAdmin] = useState<AdminData | null>(null);
   const [adminLoading, setAdminLoading] = useState(false);
   const [authResolved, setAuthResolved] = useState(session.known);
+  const [welcoming, setWelcoming] = useState(false);
   const [adminDetails, setAdminDetails] = useState<AdminAccount | null>(null);
   const [grantBusy, setGrantBusy] = useState(false);
   const [subscription, setSubscription] = useState<{
@@ -945,10 +947,11 @@ export default function Page() {
             onClose={() => setAuthMode(null)}
             onDone={(signedIn) => {
               setUser(signedIn);
-            session.setUser(signedIn);
+              session.setUser(signedIn);
               setAuthMode(null);
               setNotice(null);
               setView("discover");
+              setWelcoming(true);
             }}
             labels={{ ...t.auth, close: t.discover.close }}
           />
@@ -2008,10 +2011,13 @@ export default function Page() {
             setAuthMode(null);
             setNotice(null);
             setView("discover");
+            setWelcoming(true);
           }}
           labels={{ ...t.auth, close: t.discover.close }}
         />
       ) : null}
+
+      {welcoming ? <Welcome onDone={() => setWelcoming(false)} /> : null}
 
       {adminDetails ? (
         <AdminUserModal

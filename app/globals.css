@@ -3812,3 +3812,68 @@ textarea {
     padding: 28px 22px;
   }
 }
+
+/* ---------- welcome ---------- */
+
+.welcome {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  pointer-events: none;
+}
+
+/* Opaque from the first frame: it is here to hide the swap from the page the
+   visitor was on to the account, not to reveal it and cover it again. */
+.welcome[data-phase="out"] {
+  opacity: 0;
+  transition: opacity 0.42s ease;
+}
+
+.welcome-mark {
+  width: auto;
+  height: 104px;
+  animation: welcome-mark-in 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.welcome[data-phase="out"] .welcome-mark {
+  animation: welcome-mark-out 0.42s ease both;
+}
+
+@keyframes welcome-mark-in {
+  from {
+    opacity: 0;
+    filter: blur(14px);
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0) drop-shadow(0 0 48px rgba(156, 35, 71, 0.5));
+    transform: scale(1);
+  }
+}
+
+@keyframes welcome-mark-out {
+  from {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    filter: blur(12px);
+    transform: scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome {
+    display: none;
+  }
+}
+
+[data-motion="off"] .welcome {
+  display: none;
+}
