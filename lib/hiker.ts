@@ -125,12 +125,13 @@ function median(values: number[]): number | undefined {
     : Math.round((sorted[middle - 1] + sorted[middle]) / 2);
 }
 
-/** One page of a hashtag's recent posts, plus the cursor for the next page. */
+/** One page of a hashtag's posts, plus the cursor for the next page. */
 export async function hashtagPage(
   tag: string,
   pageId?: string,
+  kind: "recent" | "top" = "recent",
 ): Promise<{ posts: HikerPost[]; next?: string }> {
-  const body = await get("/v2/hashtag/medias/recent", { name: tag, page_id: pageId });
+  const body = await get(`/v2/hashtag/medias/${kind}`, { name: tag, page_id: pageId });
   const medias = listOf(body, "response", "sections", "medias", "items", "data");
   const posts: HikerPost[] = [];
   for (const entry of medias) {

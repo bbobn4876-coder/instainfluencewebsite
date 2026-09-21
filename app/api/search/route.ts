@@ -67,6 +67,16 @@ export async function POST(request: Request) {
     try {
       const state = await stepHikerCrawl(run, query);
       if (state.status === "failed") {
+        // Mid-crawl the client already holds real results; sample data would
+        // mix into them, so only the very first round falls back to it.
+        if (run) {
+          return NextResponse.json({
+            provider: "hiker",
+            status: "done",
+            influencers: [],
+            notice: state.detail,
+          });
+        }
         const fallback = await searchInfluencers(query);
         return NextResponse.json({ ...fallback, status: "done", notice: state.detail });
       }
@@ -89,6 +99,14 @@ export async function POST(request: Request) {
         stats: state.stats,
       });
     } catch (error) {
+      if (run) {
+        return NextResponse.json({
+          provider: "hiker",
+          status: "done",
+          influencers: [],
+          notice: (error as Error).message,
+        });
+      }
       const fallback = await searchInfluencers(query);
       return NextResponse.json({
         ...fallback,

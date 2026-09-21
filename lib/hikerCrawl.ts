@@ -7,7 +7,7 @@
 import { ALL } from "./countries";
 import { countryOfLocation, placeInText, verdictFor } from "./geo";
 import { extractEmails, extractLinks, extractPhones } from "./contacts";
-import { hashtagPage, profile, suggestedProfiles, type HikerProfile } from "./hiker";
+import { hashtagPage, profile, suggestedProfiles, type HikerPost, type HikerProfile } from "./hiker";
 import { discoveryTags, type CrawlStats, type GeoHint } from "./crawl";
 import type { Influencer, SearchQuery } from "./types";
 
@@ -43,22 +43,30 @@ export type HikerStatus =
     }
   | { status: "failed"; detail: string };
 
-/** Runs a job over a list with a fixed number of workers. */
-async function pooled<T, R>(items: T[], worker: (item: T) => Promise<R>): Promise<R[]> {
-  const out: R[] = [];
+/**
+ * Runs a job over a list with a fixed number of workers. Failures are kept
+ * rather than swallowed: a round where every request failed must not be
+ * reported as "nothing found".
+ */
+async function pooled<T, R>(
+  items: T[],
+  worker: (item: T) => Promise<R>,
+): Promise<{ results: R[]; errors: string[] }> {
+  const results: R[] = [];
+  const errors: string[] = [];
   let next = 0;
   const runners = Array.from({ length: Math.min(CONCURRENCY, items.length) }, async () => {
     while (next < items.length) {
       const index = next++;
       try {
-        out.push(await worker(items[index]));
-      } catch {
-        // One failed request must not sink the whole round.
+        results.push(await worker(items[index]));
+      } catch (error) {
+        errors.push((error as Error).message);
       }
     }
   });
   await Promise.all(runners);
-  return out;
+  return { results, errors };
 }
 
 function toInfluencer(item: HikerProfile, query: SearchQuery, geo?: GeoHint): Influencer {
@@ -97,16 +105,38 @@ async function discover(query: SearchQuery): Promise<HikerStatus> {
   const wanted = query.countries.includes(ALL) ? [] : query.countries;
   // Spread the page budget over the tags rather than draining one of them.
   const pagesPerTag = Math.max(1, Math.round(TAG_PAGES / Math.max(1, tags.length)));
-  const jobs: string[] = tags.flatMap((tag) => Array.from({ length: pagesPerTag }, () => tag));
 
-  const cursors = new Map<string, string | undefined>();
-  const pages = await pooled(jobs, async (tag) => {
-    const page = await hashtagPage(tag, cursors.get(tag));
-    cursors.set(tag, page.next);
-    return page.posts;
+  // Each tag is one job that pages through itself, so its cursor stays in order.
+  const { results, errors } = await pooled(tags, async (tag) => {
+    const posts: HikerPost[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < pagesPerTag; page += 1) {
+      const answer = await hashtagPage(tag, cursor, "recent");
+      posts.push(...answer.posts);
+      if (!answer.next) break;
+      cursor = answer.next;
+    }
+    // Instagram hides the recent feed of restricted tags (gambling, betting and
+    // the like) but still serves top posts, so that is worth one more request.
+    if (posts.length === 0) {
+      const top = await hashtagPage(tag, undefined, "top");
+      posts.push(...top.posts);
+    }
+    return posts;
   });
 
-  const seenPosts = pages.flat();
+  const seenPosts = results.flat();
+  if (seenPosts.length === 0) {
+    if (errors.length > 0) return { status: "failed", detail: errors[0] };
+    return {
+      status: "failed",
+      detail:
+        "Instagram returned no posts for those hashtags. Restricted topics such as " +
+        "gambling and betting are often hidden from hashtag pages — try a broader " +
+        "niche, or add a keyword that creators in it actually use.",
+    };
+  }
+
   const byUser = new Map<string, { hits: Map<string, string>; other: number }>();
   for (const post of seenPosts) {
     const entry = byUser.get(post.username) ?? { hits: new Map(), other: 0 };
@@ -134,7 +164,10 @@ async function discover(query: SearchQuery): Promise<HikerStatus> {
 
   const candidates = [...confirmed, ...maybe].slice(0, PROFILE_BUDGET);
   if (candidates.length === 0) {
-    return { status: "failed", detail: "No accounts found under those hashtags." };
+    return {
+      status: "failed",
+      detail: `Every one of the ${seenPosts.length} posts found was tagged outside the chosen geo.`,
+    };
   }
   return {
     status: "running",
@@ -157,9 +190,11 @@ async function details(run: HikerRun, query: SearchQuery): Promise<HikerStatus> 
   const hints = { ...(run.geo ?? {}) };
   const wanted = query.countries.includes(ALL) ? [] : query.countries;
 
-  const fetched = (await pooled(batch, (name) => profile(name))).filter(
-    (p): p is HikerProfile => p !== null,
-  );
+  const round = await pooled(batch, (name) => profile(name));
+  const fetched = round.results.filter((p): p is HikerProfile => p !== null);
+  if (fetched.length === 0 && round.errors.length > 0) {
+    return { status: "failed", detail: round.errors[0] };
+  }
 
   // The bio is the second geo source, exactly as on the Apify path.
   const kept: HikerProfile[] = [];
@@ -184,7 +219,7 @@ async function details(run: HikerRun, query: SearchQuery): Promise<HikerStatus> 
   const seeds = kept.filter((item) => inBand.has(item.username));
   if (seen.length < PROFILE_BUDGET) {
     const suggestions = await pooled(seeds, (item) => suggestedProfiles(item.id));
-    for (const names of suggestions) {
+    for (const names of suggestions.results) {
       for (const name of names) {
         if (known.has(name) || seen.length >= PROFILE_BUDGET) continue;
         known.add(name);
