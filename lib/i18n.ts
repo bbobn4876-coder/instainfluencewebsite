@@ -210,22 +210,18 @@ Best,
       pitchStart: "Get started",
       pitch: [
         {
-          kicker: "Intro",
           title: "Find the creators, keep the contacts",
           body: "Pick a country, a niche and a follower range. Loomera pulls the public profiles that fit and parses the email, phone and links out of every bio it reads.",
         },
         {
-          kicker: "Problem",
           title: "The list is the easy part",
           body: "Finding a few hundred creators by hand takes a week, and half the sheet is stale by the time you write to it. Then every message is pasted one at a time, from one mailbox, with nowhere for the replies to land.",
         },
         {
-          kicker: "Use case",
           title: "One search, then the outreach",
           body: "Select the profiles worth writing to, write once, and every recipient gets their own details filled in. Send from your own mailbox — or several, choosing who hears from which — and read the answers from mail, Telegram and Instagram in one inbox.",
         },
         {
-          kicker: "Call to action",
           title: "Build a subscription that fits",
           body: "Choose how many accounts a day you parse, how many mailboxes you send from and how deep the search goes. Nothing is charged while plans are being trialled.",
         },
@@ -711,22 +707,18 @@ Best,
       pitchStart: "Начать",
       pitch: [
         {
-          kicker: "Intro",
           title: "Находит авторов и вытаскивает контакты",
           body: "Выберите страну, нишу и диапазон подписчиков. Loomera соберёт подходящие публичные профили и разберёт из каждого bio почту, телефон и ссылки на другие сети.",
         },
         {
-          kicker: "Problem",
           title: "Список — это самая простая часть",
           body: "Собрать пару сотен авторов руками — неделя работы, и половина таблицы устареет раньше, чем до неё дойдут руки. Дальше каждое письмо вставляется по одному, с одной почты, а ответы приходить некуда.",
         },
         {
-          kicker: "Use case",
           title: "Один поиск — и сразу рассылка",
           body: "Отметьте нужные профили, напишите письмо один раз — данные каждого получателя подставятся сами. Отправляйте со своей почты или сразу с нескольких, выбирая, кому с какой. Ответы с почты, Telegram и Instagram соберутся в одном входящем.",
         },
         {
-          kicker: "Call to action",
           title: "Соберите подписку под себя",
           body: "Выберите, сколько аккаунтов в сутки парсить, со скольких почт рассылать и насколько глубоким должен быть поиск. Пока тарифы в тестовом режиме, оплата не списывается.",
         },

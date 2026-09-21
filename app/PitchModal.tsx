@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import PitchArt from "./PitchArt";
 
-type Slide = { kicker: string; title: string; body: string };
+type Slide = { title: string; body: string };
 
 /** Matches the exit transition in the stylesheet. */
 const LEAVE_MS = 260;
@@ -78,7 +78,6 @@ export default function PitchModal({
           </div>
 
           <div className="pitch-slide" key={step}>
-            <span className="pitch-kicker">{slides[step]?.kicker}</span>
             <h2 className="pitch-title">{slides[step]?.title}</h2>
             <p className="pitch-body">{slides[step]?.body}</p>
           </div>
@@ -88,10 +87,10 @@ export default function PitchModal({
               {slides.map((slide, index) => (
                 <button
                   type="button"
-                  key={slide.kicker}
+                  key={slide.title}
                   className="auth-dot"
                   data-active={index === step}
-                  aria-label={slide.kicker}
+                  aria-label={slide.title}
                   onClick={() => setStep(index)}
                 />
               ))}
