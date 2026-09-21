@@ -159,16 +159,17 @@ export default function AuthModal({
             {busy ? labels.working : mode === "signup" ? labels.submitUp : labels.submitIn}
           </button>
 
+          {/* The other way in sits beside the primary action rather than
+              under it as small print: same size, quieter colour. */}
           <button
             type="button"
-            className="auth-switch"
+            className="btn auth-alt"
             onClick={() => {
               setError(null);
               onMode(mode === "signup" ? "signin" : "signup");
             }}
           >
-            {mode === "signup" ? labels.haveAccount : labels.noAccount}{" "}
-            <span>{mode === "signup" ? labels.signIn : labels.signUp}</span>
+            {mode === "signup" ? labels.signIn : labels.signUp}
           </button>
         </form>
       </div>
