@@ -3829,29 +3829,65 @@ textarea {
    visitor was on to the account, not to reveal it and cover it again. */
 .welcome[data-phase="out"] {
   opacity: 0;
-  transition: opacity 0.42s ease;
+  transform: scale(1.04);
+  transition:
+    opacity 0.52s ease,
+    transform 0.52s cubic-bezier(0.32, 0.72, 0.24, 1);
+}
+
+/* A burgundy bloom behind the mark, so the moment reads as a door opening
+   rather than a dark page still loading. */
+.welcome-halo {
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(156, 35, 71, 0.55), transparent 68%);
+  filter: blur(36px);
+  animation: welcome-halo 1.04s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes welcome-halo {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0.85;
+    transform: scale(1.12);
+  }
 }
 
 .welcome-mark {
+  position: relative;
   width: auto;
-  height: 104px;
-  animation: welcome-mark-in 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  height: 148px;
+  animation: welcome-mark-in 1.04s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
 
 .welcome[data-phase="out"] .welcome-mark {
-  animation: welcome-mark-out 0.42s ease both;
+  animation: welcome-mark-out 0.52s cubic-bezier(0.32, 0.72, 0.24, 1) both;
 }
 
 @keyframes welcome-mark-in {
-  from {
+  0% {
     opacity: 0;
-    filter: blur(14px);
-    transform: scale(0.92);
+    filter: blur(22px);
+    transform: scale(0.72) translateY(14px);
   }
-  to {
+  60% {
     opacity: 1;
-    filter: blur(0) drop-shadow(0 0 48px rgba(156, 35, 71, 0.5));
-    transform: scale(1);
+    filter: blur(0) drop-shadow(0 0 56px rgba(156, 35, 71, 0.75));
+    transform: scale(1.04) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0) drop-shadow(0 0 34px rgba(156, 35, 71, 0.5));
+    transform: scale(1) translateY(0);
   }
 }
 
@@ -3863,8 +3899,8 @@ textarea {
   }
   to {
     opacity: 0;
-    filter: blur(12px);
-    transform: scale(1.06);
+    filter: blur(16px);
+    transform: scale(1.18);
   }
 }
 

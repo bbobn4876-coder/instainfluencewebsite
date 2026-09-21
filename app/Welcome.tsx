@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 
-const FADE_IN = 420;
-const HOLD = 260;
-const FADE_OUT = 420;
+const FADE_IN = 620;
+const HOLD = 420;
+const FADE_OUT = 520;
 
 export const WELCOME_MS = FADE_IN + HOLD + FADE_OUT;
 
@@ -28,6 +28,7 @@ export default function Welcome({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="welcome" data-phase={phase} aria-hidden>
+      <span className="welcome-halo" />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img className="welcome-mark" src="/iconinfluence.png" alt="" />
     </div>
