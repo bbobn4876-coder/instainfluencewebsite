@@ -31,12 +31,14 @@ export default function Subscribe() {
   const t = dict(language).plan;
 
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem("language");
-      if (stored === "ru" || stored === "en") setLanguage(stored);
-    } catch {
-      /* storage can be blocked; English is the default */
-    }
+    // The account's language, so the page opens in the same one as the app.
+    fetch("/api/settings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { language?: Language } | null) => {
+        if (data?.language === "ru" || data?.language === "en") setLanguage(data.language);
+      })
+      .catch(() => undefined);
+
     fetch("/api/plan")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
@@ -47,6 +49,16 @@ export default function Subscribe() {
       })
       .catch(() => undefined)
       .finally(() => setReady(true));
+  }, []);
+
+  const switchLanguage = useCallback((next: Language) => {
+    setLanguage(next);
+    // Saved on the account, so going back to the app keeps the choice.
+    void fetch("/api/settings", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ language: next }),
+    }).catch(() => undefined);
   }, []);
 
   const lines = useMemo(() => priceLines(config), [config]);
@@ -128,9 +140,18 @@ export default function Subscribe() {
 
       <main className="subscribe-main">
         <header className="subscribe-head">
-          <a className="subscribe-back" href="/">
-            ← {t.back}
-          </a>
+          <div className="subscribe-head-row">
+            <a className="subscribe-back" href="/">
+              ← {t.back}
+            </a>
+            <button
+              className="landing-lang"
+              onClick={() => switchLanguage(language === "ru" ? "en" : "ru")}
+              aria-label="Language"
+            >
+              {language === "ru" ? "EN" : "RU"}
+            </button>
+          </div>
           <h1 className="subscribe-title">{t.title}</h1>
           <p className="subscribe-sub">{t.sub}</p>
         </header>
