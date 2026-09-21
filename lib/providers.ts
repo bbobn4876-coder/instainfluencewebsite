@@ -1,12 +1,14 @@
 import { ALL, countryByCode } from "./countries";
+import { discoveryTags, type CrawlStats, type GeoHint } from "./crawl";
 import { countryOfLocation, placeInText, verdictFor } from "./geo";
 import { extractEmails, extractLinks, extractPhones } from "./contacts";
 import { mockSearch } from "./mock";
 import type { Influencer, SearchQuery } from "./types";
 
-export type ProviderName = "mock" | "apify" | "instagram-graph";
+export type ProviderName = "mock" | "apify" | "hiker" | "instagram-graph";
 
 export function activeProvider(): ProviderName {
+  if (process.env.HIKER_TOKEN) return "hiker";
   if (process.env.APIFY_TOKEN) return "apify";
   if (process.env.IG_ACCESS_TOKEN && process.env.IG_BUSINESS_ACCOUNT_ID) return "instagram-graph";
   return "mock";
@@ -109,8 +111,7 @@ function toInfluencer(
 }
 
 export type ApifyStage = "discover" | "details";
-/** Where a candidate was seen posting from, carried between the two stages. */
-export type GeoHint = { code: string; place: string };
+
 export type ApifyRun = {
   runId: string;
   datasetId: string;
@@ -123,13 +124,7 @@ export type ApifyRun = {
   stats?: CrawlStats;
 };
 
-/** Numbers behind the funnel, so a thin result set can be explained. */
-export type CrawlStats = {
-  posts: number;
-  candidates: number;
-  profiles: number;
-  inBand: number;
-};
+
 
 /**
  * Apify bills per scraped result, so one search has a result budget and the
@@ -196,49 +191,6 @@ async function startRun(input: Record<string, unknown>, stage: ApifyStage): Prom
     throw new Error("Apify did not return a run id.");
   }
   return { runId: data.data.id, datasetId: data.data.defaultDatasetId, stage };
-}
-
-const NICHE_SUFFIXES = [
-  "blogger",
-  "creator",
-  "influencer",
-  "daily",
-  "life",
-  "style",
-  "gram",
-  "community",
-  "tips",
-  "addict",
-];
-
-/** Hashtag pages per run; more tags means a wider, more varied candidate pool. */
-const TAG_LIMIT = Number(process.env.APIFY_TAG_LIMIT ?? 60);
-
-/** Hashtags to scan: the niches themselves, the keyword, and city+niche combinations. */
-function discoveryTags(query: SearchQuery): string[] {
-  const niches = query.categories?.includes(ALL)
-    ? ["influencer", "creator", "lifestyle", "fashion", "fitness", "travel", "food", "beauty"]
-    : (query.categories ?? ["lifestyle"]);
-  const cities = query.countries.includes(ALL)
-    ? []
-    : query.countries.flatMap((code) => countryByCode(code)?.cities ?? []);
-
-  const clean = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const tags = new Set<string>();
-
-  if (query.keyword?.trim()) tags.add(clean(query.keyword));
-  for (const niche of niches) {
-    const base = clean(niche);
-    tags.add(base);
-    // Suffixes pull in the smaller creator accounts rather than the big pages.
-    for (const suffix of NICHE_SUFFIXES) tags.add(`${base}${suffix}`);
-    // City tags are where smaller, local creators actually show up.
-    for (const city of cities) {
-      tags.add(`${clean(city)}${base}`);
-      tags.add(`${clean(city)}creator`);
-    }
-  }
-  return [...tags].filter(Boolean).slice(0, TAG_LIMIT);
 }
 
 /**

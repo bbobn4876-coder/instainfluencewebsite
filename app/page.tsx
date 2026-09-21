@@ -361,10 +361,14 @@ export default function Page() {
             ? t.discover.foundSoFar(byId.size, seenSoFar)
             : t.discover.stillRunning,
         );
-        await new Promise((resolve) => setTimeout(resolve, 4000));
+        // Apify needs time to scrape between polls; a per-request provider has
+        // already done a round of work by the time it answers.
+        if (data.provider !== "hiker") {
+          await new Promise((resolve) => setTimeout(resolve, 4000));
+        }
         data = await ask({
-          runId: String(data.runId),
-          datasetId: String(data.datasetId),
+          runId: data.runId,
+          datasetId: data.datasetId,
           stage: String(data.stage ?? "discover"),
           geo: data.geo,
           seen: data.seen,

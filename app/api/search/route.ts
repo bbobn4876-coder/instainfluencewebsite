@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { activeProvider, pollApifyRun, searchInfluencers, startApifyRun } from "@/lib/providers";
-import type { CrawlStats } from "@/lib/providers";
+import type { CrawlStats } from "@/lib/crawl";
+import { stepHikerCrawl } from "@/lib/hikerCrawl";
 import { ALL, countryByCode } from "@/lib/countries";
 import { requireUser } from "@/lib/session";
 import type { SearchQuery } from "@/lib/types";
@@ -49,6 +50,53 @@ export async function POST(request: Request) {
     maxFollowers: Number.isFinite(payload.maxFollowers) ? Number(payload.maxFollowers) : undefined,
     limit: Number.isFinite(payload.limit) ? Number(payload.limit) : 24,
   };
+
+  // HikerAPI answers per request, so a round of work happens right here and
+  // the client calls back for the next one.
+  if (activeProvider() === "hiker") {
+    const run =
+      payload.stage === "details"
+        ? {
+            stage: "details" as const,
+            seen: Array.isArray(payload.seen) ? payload.seen.map(String) : [],
+            cursor: Number.isFinite(payload.cursor) ? Number(payload.cursor) : 0,
+            geo: (payload.geo ?? {}) as Record<string, { code: string; place: string }>,
+            stats: (payload.stats ?? undefined) as CrawlStats | undefined,
+          }
+        : null;
+    try {
+      const state = await stepHikerCrawl(run, query);
+      if (state.status === "failed") {
+        const fallback = await searchInfluencers(query);
+        return NextResponse.json({ ...fallback, status: "done", notice: state.detail });
+      }
+      if (state.status === "running") {
+        return NextResponse.json({
+          provider: "hiker",
+          status: "running",
+          ...state.run,
+          influencers: state.influencers ?? [],
+          scanned: state.scanned,
+        });
+      }
+      return NextResponse.json({
+        provider: "hiker",
+        status: "done",
+        influencers: state.influencers,
+        scanned: state.scanned,
+        matched: state.matched,
+        confirmed: state.confirmed,
+        stats: state.stats,
+      });
+    } catch (error) {
+      const fallback = await searchInfluencers(query);
+      return NextResponse.json({
+        ...fallback,
+        status: "done",
+        notice: `${(error as Error).message} Sample data is shown below in the meantime.`,
+      });
+    }
+  }
 
   // Apify runs for a minute or more, far past any serverless time limit, so the
   // request only starts it and hands the client a run to poll.

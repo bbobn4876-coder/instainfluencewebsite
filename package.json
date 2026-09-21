@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "check-env": "node scripts/check-env.mjs"
+    "check-env": "node scripts/check-env.mjs",
+    "check-hiker": "node scripts/check-hiker.mjs"
   },
   "dependencies": {
     "exceljs": "^4.4.0",

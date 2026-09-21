@@ -37,13 +37,19 @@ if (!loaded) {
 }
 console.log(`Reading ${loaded}\n`);
 
+const hiker = env.HIKER_TOKEN ?? "";
 const apify = env.APIFY_TOKEN ?? "";
 const igToken = env.IG_ACCESS_TOKEN ?? "";
 const igAccount = env.IG_BUSINESS_ACCOUNT_ID ?? "";
 const secret = env.AUTH_SECRET ?? "";
 
 console.log("Profile source");
-if (apify) {
+if (hiker) {
+  line(true, "HikerAPI", mask(hiker));
+  line(true, "host", env.HIKER_HOST || "https://api.hikerapi.com (default)");
+  if (apify) line(true, "note", "HIKER_TOKEN wins; Apify stays configured but unused");
+  line(true, "verify", "run: npm run check-hiker");
+} else if (apify) {
   line(true, "Apify", mask(apify));
   line(true, "actor", env.APIFY_ACTOR_ID || "apify~instagram-scraper (default)");
   if (!apify.startsWith("apify_api_")) {
