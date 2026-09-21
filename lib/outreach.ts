@@ -1,5 +1,5 @@
 import nodemailer, { type Transporter } from "nodemailer";
-import { normalizeHandle, readSettings } from "./settings";
+import { mailboxById, normalizeHandle, readSettings, type Mailbox } from "./settings";
 import { renderTemplate } from "./tokens";
 import type { Influencer, OutreachResult } from "./types";
 
@@ -9,37 +9,49 @@ export type OutreachRequest = {
   subject: string;
   body: string;
   channels: { email: boolean; instagram: boolean; other: boolean };
+  /** Mailbox every recipient uses unless named below. */
+  fromMailbox?: string;
+  /** Per-recipient mailbox, keyed by influencer id. */
+  senders?: Record<string, string>;
 };
 
-type MailAccount = { transport: Transporter; from: string; replyTo?: string };
+type MailAccount = { id: string; transport: Transporter; from: string; replyTo?: string };
 
-/** Built from the account saved in Settings, falling back to the SMTP_* env vars. */
-async function mailAccount(userId: string): Promise<MailAccount | null> {
-  const { email } = await readSettings(userId);
-  if (!email.host || !email.user || !email.pass) return null;
-  const port = email.port > 0 ? email.port : 587;
+function toAccount(box: Mailbox): MailAccount {
+  const port = box.port > 0 ? box.port : 587;
   return {
+    id: box.id,
     transport: nodemailer.createTransport({
-      host: email.host,
+      host: box.host,
       port,
       secure: port === 465,
-      auth: { user: email.user, pass: email.pass },
+      auth: { user: box.user, pass: box.pass },
       // Fail fast instead of hanging the request when the host is unreachable.
       connectionTimeout: 10_000,
       greetingTimeout: 10_000,
       socketTimeout: 20_000,
     }),
-    from: email.from || email.user,
-    replyTo: email.replyTo || undefined,
+    from: box.from || box.user,
+    replyTo: box.replyTo || undefined,
   };
+}
+
+/** Built from the mailboxes saved in Settings, falling back to the SMTP_* env vars. */
+async function mailAccount(userId: string, mailboxId?: string): Promise<MailAccount | null> {
+  const settings = await readSettings(userId);
+  const box = mailboxById(settings, mailboxId);
+  return box ? toAccount(box) : null;
 }
 
 export async function emailConfigured(userId: string): Promise<boolean> {
   return (await mailAccount(userId)) !== null;
 }
 
-export async function verifyEmailAccount(userId: string): Promise<{ ok: boolean; detail: string }> {
-  const account = await mailAccount(userId);
+export async function verifyEmailAccount(
+  userId: string,
+  mailboxId?: string,
+): Promise<{ ok: boolean; detail: string }> {
+  const account = await mailAccount(userId, mailboxId);
   if (!account) return { ok: false, detail: "No email account saved." };
   try {
     await account.transport.verify();
@@ -57,9 +69,19 @@ function dmUrl(platform: string, url: string, username: string): string {
 
 export async function runOutreach(request: OutreachRequest): Promise<OutreachResult[]> {
   const results: OutreachResult[] = [];
-  const account = await mailAccount(request.userId);
-  const { accounts } = await readSettings(request.userId);
+  const settings = await readSettings(request.userId);
+  const { accounts } = settings;
   const sender = normalizeHandle(accounts.instagram);
+
+  // One transport per mailbox, opened once and shared by its recipients.
+  const opened = new Map<string, MailAccount | null>();
+  const accountFor = (influencerId: string): MailAccount | null => {
+    const wanted = request.senders?.[influencerId] ?? request.fromMailbox;
+    const box = mailboxById(settings, wanted);
+    if (!box) return null;
+    if (!opened.has(box.id)) opened.set(box.id, toAccount(box));
+    return opened.get(box.id) ?? null;
+  };
 
   for (const influencer of request.influencers) {
     const subject = renderTemplate(request.subject, influencer);
@@ -76,6 +98,7 @@ export async function runOutreach(request: OutreachRequest): Promise<OutreachRes
           detail: "No public email in the profile.",
         });
       } else {
+        const account = accountFor(influencer.id);
         for (const to of influencer.emails) {
           if (!account) {
             results.push({
@@ -102,6 +125,8 @@ export async function runOutreach(request: OutreachRequest): Promise<OutreachRes
               channel: "email",
               target: to,
               status: "sent",
+              // Which mailbox it left from, so the log can be read back.
+              detail: `from ${account.from}`,
             });
           } catch (error) {
             results.push({

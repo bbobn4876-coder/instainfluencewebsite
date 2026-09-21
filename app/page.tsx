@@ -13,6 +13,7 @@ import SubscribeCallout from "./SubscribeCallout";
 import Link from "next/link";
 import { session } from "./sessionCache";
 import Welcome from "./Welcome";
+import PitchModal from "./PitchModal";
 import ProfileModal from "./ProfileModal";
 import AuthModal, { type AuthMode } from "./AuthModal";
 import Landing from "./Landing";
@@ -118,9 +119,21 @@ type AdminData = {
   };
 };
 
+const EMPTY_MAILBOX = {
+  id: "primary",
+  label: "",
+  host: "",
+  port: 587,
+  user: "",
+  from: "",
+  replyTo: "",
+  hasPassword: false,
+};
+
 const EMPTY_SETTINGS: PublicSettings = {
   language: "en",
-  email: { host: "", port: 587, user: "", from: "", replyTo: "", hasPassword: false },
+  mailboxes: [EMPTY_MAILBOX],
+  email: EMPTY_MAILBOX,
   imap: { host: "", port: 993, user: "", hasPassword: false },
   accounts: { instagram: "", telegram: "", tiktok: "", youtube: "", website: "" },
   hasTelegramBot: false,
@@ -181,6 +194,7 @@ export default function Page() {
   const [adminLoading, setAdminLoading] = useState(false);
   const [authResolved, setAuthResolved] = useState(session.known);
   const [welcoming, setWelcoming] = useState(false);
+  const [pitching, setPitching] = useState(false);
   const [adminDetails, setAdminDetails] = useState<AdminAccount | null>(null);
   const [grantBusy, setGrantBusy] = useState(false);
   const [subscription, setSubscription] = useState<{
@@ -456,6 +470,23 @@ export default function Page() {
   const toggle = (id: string) =>
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
+  /** Only mailboxes with credentials can be chosen as a sender. */
+  const usableMailboxes = useMemo(
+    () =>
+      settings.mailboxes.filter((box) => box.host && box.user && box.hasPassword).slice(0, 10),
+    [settings.mailboxes],
+  );
+
+  const mailboxName = useCallback(
+    (box: { label: string; from: string; user: string }, index: number) =>
+      box.label || box.from || box.user || t.settings.mailboxUntitled(index + 1),
+    [t],
+  );
+
+  /** Mailbox every recipient uses unless overridden below. */
+  const [fromMailbox, setFromMailbox] = useState<string>("");
+  const [recipientSenders, setRecipientSenders] = useState<Record<string, string>>({});
+
   const send = useCallback(async () => {
     if (!user) {
       setAuthMode("signin");
@@ -468,7 +499,14 @@ export default function Page() {
       const res = await fetch("/api/outreach", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ influencers: selected, subject, body, channels }),
+        body: JSON.stringify({
+          influencers: selected,
+          subject,
+          body,
+          channels,
+          fromMailbox,
+          senders: recipientSenders,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Outreach failed.");
@@ -479,7 +517,7 @@ export default function Page() {
     } finally {
       setSending(false);
     }
-  }, [user, selected, subject, body, channels]);
+  }, [user, selected, subject, body, channels, fromMailbox, recipientSenders]);
 
   const loadInbox = useCallback(async () => {
     if (!user) {
@@ -630,6 +668,9 @@ export default function Page() {
     [t, loadAdmin],
   );
 
+  /** Passwords typed for extra mailboxes, keyed by mailbox id. */
+  const [boxPasswords, setBoxPasswords] = useState<Record<string, string>>({});
+
   const saveSettings = useCallback(async () => {
     if (!user) {
       setAuthMode("signin");
@@ -644,6 +685,10 @@ export default function Page() {
         body: JSON.stringify({
           language,
           email: { ...settings.email, pass: password },
+          mailboxes: extraMailboxes.map((box) => ({
+            ...box,
+            pass: boxPasswords[box.id] ?? "",
+          })),
           imap: { ...settings.imap, pass: imapPassword },
           telegramBotToken: telegramBot,
           accounts: settings.accounts,
@@ -652,6 +697,7 @@ export default function Page() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not save settings.");
       setSettings(data);
+      setBoxPasswords({});
       setPassword("");
       setImapPassword("");
       setTelegramBot("");
@@ -661,7 +707,7 @@ export default function Page() {
     } finally {
       setSavingSettings(false);
     }
-  }, [user, language, settings, password, imapPassword, telegramBot, t]);
+  }, [user, language, settings, password, boxPasswords, imapPassword, telegramBot, t]);
 
   const disconnect = useCallback(async () => {
     if (!window.confirm(t.settings.disconnectConfirm)) return;
@@ -672,6 +718,7 @@ export default function Page() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not disconnect.");
       setSettings(data);
+      setBoxPasswords({});
       setPassword("");
       setImapPassword("");
       setTelegramBot("");
@@ -703,6 +750,41 @@ export default function Page() {
       setTesting(false);
     }
   }, [user]);
+
+  const extraMailboxes = settings.mailboxes.slice(1);
+  const senderLimit = subscription?.limits?.senders ?? 1;
+
+  const setMailboxField = (
+    id: string,
+    key: "label" | "host" | "user" | "from" | "replyTo" | "port",
+    value: string | number,
+  ) =>
+    setSettings((current) => ({
+      ...current,
+      mailboxes: current.mailboxes.map((box) =>
+        box.id === id ? { ...box, [key]: value } : box,
+      ),
+    }));
+
+  const addMailbox = () =>
+    setSettings((current) => ({
+      ...current,
+      mailboxes: [
+        ...current.mailboxes,
+        {
+          ...EMPTY_MAILBOX,
+          id: `mailbox-${Date.now()}`,
+          port: current.mailboxes[0]?.port ?? 587,
+          host: current.mailboxes[0]?.host ?? "",
+        },
+      ],
+    }));
+
+  const removeMailbox = (id: string) =>
+    setSettings((current) => ({
+      ...current,
+      mailboxes: current.mailboxes.filter((box) => box.id !== id),
+    }));
 
   const setEmailField = (key: keyof PublicSettings["email"], value: string | number) =>
     setSettings((prev) => ({ ...prev, email: { ...prev.email, [key]: value } }));
@@ -939,7 +1021,22 @@ export default function Page() {
           onLanguage={setLanguage}
           onSignIn={() => setAuthMode("signin")}
           onSignUp={() => setAuthMode("signup")}
+          onSubscription={() => setPitching(true)}
         />
+        {pitching ? (
+          <PitchModal
+            slides={t.home.pitch}
+            title={t.home.pitchTitle}
+            next={t.home.pitchNext}
+            start={t.home.pitchStart}
+            close={t.discover.close}
+            onStart={() => {
+              setPitching(false);
+              setAuthMode("signup");
+            }}
+            onClose={() => setPitching(false)}
+          />
+        ) : null}
         {authMode ? (
           <AuthModal
             mode={authMode}
@@ -1121,6 +1218,65 @@ export default function Page() {
                 </span>
               </p>
               <div className="compose">
+                {usableMailboxes.length > 1 && channels.email ? (
+                  <section className="panel">
+                    <h2 className="panel-title">{t.compose.sendFrom}</h2>
+                    <p className="hint">{t.compose.sendFromHint}</p>
+                    <div className="toggles">
+                      {usableMailboxes.map((box, index) => (
+                        <button
+                          className="toggle"
+                          key={box.id}
+                          aria-pressed={(fromMailbox || usableMailboxes[0].id) === box.id}
+                          onClick={() => setFromMailbox(box.id)}
+                        >
+                          {mailboxName(box, index)}
+                        </button>
+                      ))}
+                    </div>
+
+                    <h2 className="panel-title">{t.compose.perRecipient}</h2>
+                    <p className="hint">{t.compose.perRecipientHint}</p>
+                    <div className="sender-rows">
+                      {selected.map((influencer) => (
+                        <div className="sender-row" key={influencer.id}>
+                          <span className="sender-who">@{influencer.username}</span>
+                          <div className="toggles">
+                            <button
+                              className="toggle"
+                              aria-pressed={!recipientSenders[influencer.id]}
+                              onClick={() =>
+                                setRecipientSenders((current) => {
+                                  const next = { ...current };
+                                  delete next[influencer.id];
+                                  return next;
+                                })
+                              }
+                            >
+                              {t.compose.defaultSender}
+                            </button>
+                            {usableMailboxes.map((box, index) => (
+                              <button
+                                className="toggle"
+                                key={box.id}
+                                aria-pressed={recipientSenders[influencer.id] === box.id}
+                                onClick={() =>
+                                  setRecipientSenders((current) => ({
+                                    ...current,
+                                    [influencer.id]: box.id,
+                                  }))
+                                }
+                              >
+                                {mailboxName(box, index)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+
                 <div className="toggles">
                   {(["email", "instagram", "other"] as const).map((channel) => (
                     <button
@@ -1669,6 +1825,97 @@ export default function Page() {
                     </div>
                     <p className="hint">{t.settings.userHint}</p>
                   </details>
+                </section>
+
+                <section className="panel">
+                  <h2 className="panel-title">{t.settings.mailboxesSection}</h2>
+                  <p className="hint">{t.settings.mailboxesHint}</p>
+                  <p className="hint">
+                    {t.settings.mailboxLimit(senderLimit)}
+                    {settings.mailboxes.length >= senderLimit
+                      ? ` ${t.settings.mailboxLimitReached}`
+                      : ""}
+                  </p>
+
+                  {extraMailboxes.map((box, index) => (
+                    <div className="mailbox" key={box.id}>
+                      <div className="mailbox-head">
+                        <strong>{box.label || t.settings.mailboxUntitled(index + 2)}</strong>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => removeMailbox(box.id)}
+                        >
+                          {t.settings.removeMailbox}
+                        </button>
+                      </div>
+                      <div className="form-grid">
+                        <label className="field" style={{ gridColumn: "span 2" }}>
+                          {t.settings.mailboxLabel}
+                          <input
+                            value={box.label}
+                            placeholder={t.settings.mailboxUntitled(index + 2)}
+                            onChange={(e) => setMailboxField(box.id, "label", e.target.value)}
+                          />
+                        </label>
+                        <label className="field" style={{ gridColumn: "span 2" }}>
+                          {t.settings.address}
+                          <input
+                            value={box.user}
+                            placeholder="you@yourdomain.com"
+                            onChange={(e) => setMailboxField(box.id, "user", e.target.value)}
+                          />
+                        </label>
+                        <label className="field" style={{ gridColumn: "span 2" }}>
+                          {t.settings.appPassword}
+                          <input
+                            type="password"
+                            value={boxPasswords[box.id] ?? ""}
+                            placeholder={box.hasPassword ? "••••••••" : ""}
+                            onChange={(e) =>
+                              setBoxPasswords((current) => ({
+                                ...current,
+                                [box.id]: e.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+                        <label className="field">
+                          {t.settings.host}
+                          <input
+                            value={box.host}
+                            placeholder="smtp.yourdomain.com"
+                            onChange={(e) => setMailboxField(box.id, "host", e.target.value)}
+                          />
+                        </label>
+                        <label className="field">
+                          {t.settings.port}
+                          <input
+                            type="number"
+                            value={box.port}
+                            onChange={(e) =>
+                              setMailboxField(box.id, "port", Number(e.target.value))
+                            }
+                          />
+                        </label>
+                        <label className="field" style={{ gridColumn: "span 2" }}>
+                          {t.settings.from}
+                          <input
+                            value={box.from}
+                            placeholder={t.settings.fromPlaceholder}
+                            onChange={(e) => setMailboxField(box.id, "from", e.target.value)}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+
+                  <button
+                    className="btn btn-ghost btn-sm mailbox-add"
+                    onClick={addMailbox}
+                    disabled={settings.mailboxes.length >= senderLimit}
+                  >
+                    {t.settings.addMailbox}
+                  </button>
                 </section>
 
                 <section className="panel">

@@ -13,11 +13,14 @@ export default function Landing({
   onLanguage,
   onSignIn,
   onSignUp,
+  onSubscription,
 }: {
   language: Language;
   onLanguage: (language: Language) => void;
   onSignIn: () => void;
   onSignUp: () => void;
+  /** The subscription block explains the product before asking for an account. */
+  onSubscription: () => void;
 }) {
   const t = dict(language).home;
   const [scrolled, setScrolled] = useState(false);
@@ -115,7 +118,7 @@ export default function Landing({
             title={t.pricingHeadline}
             body={t.pricingSub}
             action={t.pricingCta}
-            onAction={onSignUp}
+            onAction={onSubscription}
           />
         </section>
 

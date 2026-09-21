@@ -13,6 +13,9 @@ export type EmailSettings = {
   replyTo: string;
 };
 
+/** A mailbox outreach can be sent from. The first one is the default. */
+export type Mailbox = EmailSettings & { id: string; label: string };
+
 export type ImapSettings = {
   host: string;
   port: number;
@@ -30,7 +33,8 @@ export type SocialAccounts = {
 
 export type AppSettings = {
   language: Language;
-  email: EmailSettings;
+  /** Every mailbox the account can send from; the first is the primary one. */
+  mailboxes: Mailbox[];
   imap: ImapSettings;
   accounts: SocialAccounts;
   /** Bot token used to read the Telegram inbox. */
@@ -44,17 +48,23 @@ function settingsFile(userId: string): string {
   return path.join(DATA_DIR, "users", `${userId}.json`);
 }
 
+export const PRIMARY_MAILBOX = "primary";
+
+function emptyEmail(): EmailSettings {
+  return {
+    host: process.env.SMTP_HOST ?? "",
+    port: Number(process.env.SMTP_PORT ?? 587),
+    user: process.env.SMTP_USER ?? "",
+    pass: process.env.SMTP_PASS ?? "",
+    from: process.env.SMTP_FROM ?? "",
+    replyTo: "",
+  };
+}
+
 function defaults(): AppSettings {
   return {
     language: "en",
-    email: {
-      host: process.env.SMTP_HOST ?? "",
-      port: Number(process.env.SMTP_PORT ?? 587),
-      user: process.env.SMTP_USER ?? "",
-      pass: process.env.SMTP_PASS ?? "",
-      from: process.env.SMTP_FROM ?? "",
-      replyTo: "",
-    },
+    mailboxes: [{ id: PRIMARY_MAILBOX, label: "", ...emptyEmail() }],
     imap: {
       host: process.env.IMAP_HOST ?? "",
       port: Number(process.env.IMAP_PORT ?? 993),
@@ -89,7 +99,7 @@ export async function readSettings(userId: string): Promise<AppSettings> {
     return {
       language: stored.language === "ru" ? "ru" : "en",
       // Stored values win over the env fallbacks, but only where they are set.
-      email: { ...base.email, ...(stored.email ?? {}) },
+      mailboxes: readMailboxes(stored, base.mailboxes[0]),
       imap: { ...base.imap, ...(stored.imap ?? {}) },
       accounts: { ...base.accounts, ...(stored.accounts ?? {}) },
       telegramBotToken: stored.telegramBotToken ?? base.telegramBotToken,
@@ -111,6 +121,26 @@ export async function writeSettings(userId: string, next: AppSettings): Promise<
   await fs.writeFile(settingsFile(userId), JSON.stringify(next, null, 2), { mode: 0o600 });
 }
 
+/**
+ * Settings saved before mailboxes existed carry a single `email` object. It
+ * becomes the primary mailbox, so nobody has to re-enter their credentials.
+ */
+function readMailboxes(
+  stored: Partial<AppSettings> & { email?: EmailSettings },
+  fallback: Mailbox,
+): Mailbox[] {
+  const list = Array.isArray(stored.mailboxes) ? stored.mailboxes : [];
+  if (list.length > 0) {
+    return list.map((box, index) => ({
+      ...fallback,
+      ...box,
+      id: box.id || (index === 0 ? PRIMARY_MAILBOX : `mailbox-${index}`),
+      label: box.label ?? "",
+    }));
+  }
+  return [{ ...fallback, ...(stored.email ?? {}), id: PRIMARY_MAILBOX, label: "" }];
+}
+
 /** Removes an account's stored credentials along with the account itself. */
 export async function deleteSettings(userId: string): Promise<void> {
   if (databaseConfigured()) {
@@ -127,11 +157,16 @@ export async function deleteSettings(userId: string): Promise<void> {
 
 /** The password never leaves the server; the client only learns whether one is stored. */
 export function toPublicSettings(settings: AppSettings) {
-  const { pass, ...email } = settings.email;
+  const mailboxes = settings.mailboxes.map(({ pass, ...box }) => ({
+    ...box,
+    hasPassword: pass.length > 0,
+  }));
   const { pass: imapPass, ...imap } = settings.imap;
   return {
     language: settings.language,
-    email: { ...email, hasPassword: pass.length > 0 },
+    mailboxes,
+    // The first mailbox, kept under its old name for the panel that edits it.
+    email: mailboxes[0],
     imap: { ...imap, hasPassword: imapPass.length > 0 },
     accounts: settings.accounts,
     hasTelegramBot: settings.telegramBotToken.length > 0,
@@ -139,6 +174,12 @@ export function toPublicSettings(settings: AppSettings) {
 }
 
 export type PublicSettings = ReturnType<typeof toPublicSettings>;
+
+/** The mailbox an id refers to, or the primary one when it is unknown. */
+export function mailboxById(settings: AppSettings, id?: string | null): Mailbox | undefined {
+  const usable = settings.mailboxes.filter((box) => box.host && box.user && box.pass);
+  return usable.find((box) => box.id === id) ?? usable[0];
+}
 
 export function normalizeHandle(value: string): string {
   return value.trim().replace(/^@/, "").replace(/\s+/g, "");

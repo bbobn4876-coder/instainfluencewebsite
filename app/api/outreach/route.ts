@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { emailConfigured, runOutreach } from "@/lib/outreach";
 import { requireUser } from "@/lib/session";
 import { allowance, bumpTotal } from "@/lib/subscription";
+import { readSettings } from "@/lib/settings";
 import type { Influencer } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -26,11 +27,22 @@ export async function POST(request: Request) {
   const { user, response: denied } = await requireUser();
   if (!user) return denied;
 
+  // Sending is what the gate is for; the GET above only reports readiness.
+  const quota = await allowance(user.id, user.isAdmin);
+  if (!quota.limits) {
+    return NextResponse.json(
+      { error: "Pick a plan to use this.", reason: "no-plan" },
+      { status: 402 },
+    );
+  }
+
   let payload: {
     influencers?: Influencer[];
     subject?: string;
     body?: string;
     channels?: { email?: boolean; instagram?: boolean; other?: boolean };
+    fromMailbox?: string;
+    senders?: Record<string, string>;
   };
   try {
     payload = await request.json();
@@ -61,12 +73,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Pick at least one channel." }, { status: 400 });
   }
 
+  // The plan decides how many mailboxes may send; anything past that falls
+  // back to the primary one rather than being silently honoured.
+  const settings = await readSettings(user.id);
+  const senderLimit = quota.limits?.senders ?? 1;
+  const allowed = new Set(settings.mailboxes.slice(0, senderLimit).map((box) => box.id));
+  const senders: Record<string, string> = {};
+  for (const [id, mailbox] of Object.entries(payload.senders ?? {})) {
+    if (allowed.has(mailbox)) senders[id] = mailbox;
+  }
+
   const results = await runOutreach({
     userId: user.id,
     influencers,
     subject: payload.subject?.trim() || "Collaboration",
     body: payload.body,
     channels,
+    fromMailbox: allowed.has(String(payload.fromMailbox)) ? payload.fromMailbox : undefined,
+    senders,
   });
 
   await bumpTotal(user.id, "outreach", results.length);

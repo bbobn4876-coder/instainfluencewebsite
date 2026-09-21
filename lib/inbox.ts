@@ -34,11 +34,13 @@ function preview(text: string): string {
 }
 
 async function emailInbox(userId: string, limit: number): Promise<{ messages: InboxMessage[]; status: ChannelStatus }> {
-  const { imap, email } = await readSettings(userId);
-  // The IMAP block falls back to the SMTP login when only the host is given.
+  const settings = await readSettings(userId);
+  const { imap } = settings;
+  // The IMAP block falls back to the primary mailbox when only the host is given.
+  const primary = settings.mailboxes[0];
   const host = imap.host;
-  const user = imap.user || email.user;
-  const pass = imap.pass || email.pass;
+  const user = imap.user || primary?.user || "";
+  const pass = imap.pass || primary?.pass || "";
   if (!host || !user || !pass) {
     return {
       messages: [],

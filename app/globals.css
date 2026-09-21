@@ -3913,3 +3913,164 @@ textarea {
 [data-motion="off"] .welcome {
   display: none;
 }
+
+/* ---------- mailboxes ---------- */
+
+.mailbox {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.mailbox-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.mailbox-add {
+  align-self: flex-start;
+}
+
+.sender-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.sender-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.sender-who {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* ---------- pitch ---------- */
+
+.pitch {
+  position: relative;
+  width: min(760px, 100%);
+  min-height: min(500px, 88vh);
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid rgba(154, 34, 70, 0.45);
+  border-radius: 24px;
+  background: var(--bg);
+  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.6);
+  animation: dialog-in 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.pitch-inner {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  height: 100%;
+  min-height: inherit;
+  padding: 38px 44px 34px;
+}
+
+.pitch-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.pitch-brand img {
+  width: 21px;
+  height: auto;
+}
+
+.pitch-slide {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: auto 0;
+  max-width: 34rem;
+  animation: pitch-in 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes pitch-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.pitch-kicker {
+  align-self: flex-start;
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(154, 34, 70, 0.6);
+  background: rgba(109, 19, 48, 0.32);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #e9c7d3;
+}
+
+.pitch-title {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.18;
+}
+
+.pitch-body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.68;
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.pitch-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.pitch-dots {
+  display: flex;
+  gap: 7px;
+}
+
+.pitch-action {
+  padding: 13px 30px;
+}
+
+@media (max-width: 700px) {
+  .pitch-inner {
+    padding: 28px 22px 24px;
+  }
+
+  .pitch-title {
+    font-size: 24px;
+  }
+}
