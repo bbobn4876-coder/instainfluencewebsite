@@ -4242,9 +4242,12 @@ textarea {
 }
 
 .art-fan {
-  position: relative;
   width: 100%;
   max-width: 250px;
+}
+
+.art-fan-stack {
+  position: relative;
 }
 
 .art-letter {
@@ -4265,15 +4268,22 @@ textarea {
 .art-letter-mid {
   position: absolute;
   inset: 0;
-  background: rgba(12, 8, 10, 0.6);
+  background: rgba(10, 6, 8, 0.82);
 }
 
 .art-letter-back {
-  transform: rotate(-5deg) translateY(-8px);
+  transform: rotate(-6deg) translate(-10px, -6px);
 }
 
 .art-letter-mid {
-  transform: rotate(3deg) translateY(-4px);
+  transform: rotate(3.5deg) translate(8px, -3px);
+}
+
+/* Above the sheets behind it, and opaque so they do not show through. */
+.art-letter-front {
+  position: relative;
+  z-index: 2;
+  background: rgba(14, 9, 11, 0.97);
 }
 
 .art-line {

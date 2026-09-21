@@ -74,15 +74,19 @@ function StaleSheet({ copy }: { copy: ArtCopy }) {
 function OneToMany({ copy }: { copy: ArtCopy }) {
   return (
     <div className="art-fan">
-      <div className="art-letter art-letter-back" aria-hidden />
-      <div className="art-letter art-letter-mid" aria-hidden />
-      <div className="art-letter">
-        <b>{copy.letterTitle}</b>
-        <span className="art-line" />
-        <span className="art-line art-line-short" />
-        <span className="art-token">Name</span>
-        <span className="art-line" />
-        <span className="art-line art-line-short" />
+      {/* The stack is its own box: the sheets behind stretch over the letter
+          only, not over the caption underneath it. */}
+      <div className="art-fan-stack">
+        <div className="art-letter art-letter-back" aria-hidden />
+        <div className="art-letter art-letter-mid" aria-hidden />
+        <div className="art-letter art-letter-front">
+          <b>{copy.letterTitle}</b>
+          <span className="art-line" />
+          <span className="art-line art-line-short" />
+          <span className="art-token">Name</span>
+          <span className="art-line" />
+          <span className="art-line art-line-short" />
+        </div>
       </div>
       <p className="art-note">{copy.letterNote}</p>
     </div>
