@@ -1,26 +1,61 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { databaseConfigured, query } from "./db";
-import { PLANS, isPlanId, type Plan, type PlanId } from "./plans";
+import {
+  UNLIMITED,
+  limitsOf,
+  normalizeConfig,
+  type Limits,
+  type SubscriptionConfig,
+} from "./plans";
 
 /** What a user's subscription looks like to the rest of the app. */
 export type Subscription = {
-  plan: PlanId | null;
+  config: SubscriptionConfig | null;
   startedAt: string | null;
-  /** Profiles read today, against the plan's daily allowance. */
+  /** Profiles read today, against the daily allowance. */
   usedToday: number;
-  /** UTC day the counter belongs to. */
   day: string;
+  /** Lifetime counters, for the admin panel. */
+  totals: Totals;
 };
 
-type Stored = { plan: PlanId | null; startedAt: string | null; day: string; used: number };
+export type Totals = {
+  /** Profiles the crawl has read for this user. */
+  profiles: number;
+  /** Billable requests those reads cost. */
+  requests: number;
+  /** Recipients messaged. */
+  outreach: number;
+  /** Searches started. */
+  searches: number;
+};
+
+type Stored = {
+  config: SubscriptionConfig | null;
+  startedAt: string | null;
+  day: string;
+  used: number;
+  totals: Totals;
+};
 
 const DATA_DIR = process.env.DATA_DIR ?? path.join(process.cwd(), ".data");
 const FILE = path.join(DATA_DIR, "subscriptions.json");
 
+/** What one request costs us, so spend can be shown per account. */
+export const REQUEST_COST = Number(process.env.SOURCE_REQUEST_COST ?? 0.02);
+
 const today = (): string => new Date().toISOString().slice(0, 10);
 
-const empty = (): Stored => ({ plan: null, startedAt: null, day: today(), used: 0 });
+const noTotals = (): Totals => ({ profiles: 0, requests: 0, outreach: 0, searches: 0 });
+
+const empty = (): Stored => ({
+  config: null,
+  startedAt: null,
+  day: today(),
+  used: 0,
+  totals: noTotals(),
+});
 
 async function readFileMap(): Promise<Record<string, Stored>> {
   try {
@@ -35,34 +70,49 @@ async function writeFileMap(map: Record<string, Stored>): Promise<void> {
   await fs.writeFile(FILE, JSON.stringify(map, null, 2), { mode: 0o600 });
 }
 
-type Row = { plan: string | null; started_at: Date | null; day: string | null; used: number | null };
+type Row = {
+  config: SubscriptionConfig | null;
+  started_at: Date | null;
+  day: string | null;
+  used: number | null;
+  totals: Totals | null;
+};
 
 async function load(userId: string): Promise<Stored> {
   if (databaseConfigured()) {
     const rows = await query<Row>(
-      "SELECT plan, started_at, day, used FROM subscriptions WHERE user_id = $1",
+      "SELECT config, started_at, day, used, totals FROM subscriptions WHERE user_id = $1",
       [userId],
     );
     const row = rows[0];
     if (!row) return empty();
     return {
-      plan: isPlanId(row.plan) ? row.plan : null,
+      config: row.config ? normalizeConfig(row.config) : null,
       startedAt: row.started_at ? new Date(row.started_at).toISOString() : null,
       day: row.day ?? today(),
       used: Number(row.used ?? 0),
+      totals: { ...noTotals(), ...(row.totals ?? {}) },
     };
   }
-  return (await readFileMap())[userId] ?? empty();
+  const stored = (await readFileMap())[userId];
+  return stored ? { ...empty(), ...stored, totals: { ...noTotals(), ...stored.totals } } : empty();
 }
 
 async function save(userId: string, stored: Stored): Promise<void> {
   if (databaseConfigured()) {
     await query(
-      `INSERT INTO subscriptions (user_id, plan, started_at, day, used)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO subscriptions (user_id, config, started_at, day, used, totals)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (user_id) DO UPDATE
-         SET plan = $2, started_at = $3, day = $4, used = $5`,
-      [userId, stored.plan, stored.startedAt, stored.day, stored.used],
+         SET config = $2, started_at = $3, day = $4, used = $5, totals = $6`,
+      [
+        userId,
+        stored.config ? JSON.stringify(stored.config) : null,
+        stored.startedAt,
+        stored.day,
+        stored.used,
+        JSON.stringify(stored.totals),
+      ],
     );
     return;
   }
@@ -71,51 +121,85 @@ async function save(userId: string, stored: Stored): Promise<void> {
   await writeFileMap(map);
 }
 
-/** The counter resets on its own at the start of each UTC day. */
+/** The daily counter resets on its own at the start of each UTC day. */
 function rolled(stored: Stored): Stored {
   const day = today();
   return stored.day === day ? stored : { ...stored, day, used: 0 };
 }
 
+const toSubscription = (stored: Stored): Subscription => ({
+  config: stored.config,
+  startedAt: stored.startedAt,
+  usedToday: stored.used,
+  day: stored.day,
+  totals: stored.totals,
+});
+
 export async function getSubscription(userId: string): Promise<Subscription> {
-  const stored = rolled(await load(userId));
-  return {
-    plan: stored.plan,
-    startedAt: stored.startedAt,
-    usedToday: stored.used,
-    day: stored.day,
-  };
+  return toSubscription(rolled(await load(userId)));
 }
 
-export async function setPlan(userId: string, plan: PlanId | null): Promise<Subscription> {
+/** Stores a configuration, or clears the subscription when given null. */
+export async function setConfig(
+  userId: string,
+  config: SubscriptionConfig | null,
+): Promise<Subscription> {
   const stored = rolled(await load(userId));
   const next: Stored = {
     ...stored,
-    plan,
-    startedAt: plan ? (stored.plan === plan ? stored.startedAt : new Date().toISOString()) : null,
+    config,
+    startedAt: config ? (stored.startedAt ?? new Date().toISOString()) : null,
   };
   await save(userId, next);
-  return { plan: next.plan, startedAt: next.startedAt, usedToday: next.used, day: next.day };
+  return toSubscription(next);
 }
 
-export type Allowance = { plan: Plan; remaining: number } | { plan: null; remaining: 0 };
+export type Allowance = { limits: Limits; remaining: number } | { limits: null; remaining: 0 };
 
-/** What the user may still parse today, or null when they have no plan. */
-export async function allowance(userId: string): Promise<Allowance> {
+/**
+ * What the user may still parse today. The admin account is never metered, so
+ * it always reports a full allowance whatever is stored against it.
+ */
+export async function allowance(userId: string, isAdmin = false): Promise<Allowance> {
+  if (isAdmin) return { limits: UNLIMITED, remaining: UNLIMITED.dailyProfiles };
   const subscription = await getSubscription(userId);
-  const plan = subscription.plan ? PLANS[subscription.plan] : null;
-  if (!plan) return { plan: null, remaining: 0 };
-  return { plan, remaining: Math.max(0, plan.dailyProfiles - subscription.usedToday) };
+  if (!subscription.config) return { limits: null, remaining: 0 };
+  const limits = limitsOf(subscription.config);
+  return { limits, remaining: Math.max(0, limits.dailyProfiles - subscription.usedToday) };
 }
 
-/** Records profiles read; returns what is left afterwards. */
-export async function recordUsage(userId: string, profiles: number): Promise<number> {
-  if (profiles <= 0) return (await allowance(userId)).remaining;
+/** Records a round of parsing; returns what is left of the day afterwards. */
+export async function recordUsage(
+  userId: string,
+  profiles: number,
+  requests = profiles,
+): Promise<number> {
   const stored = rolled(await load(userId));
-  const next = { ...stored, used: stored.used + profiles };
+  const next: Stored = {
+    ...stored,
+    used: stored.used + Math.max(0, profiles),
+    totals: {
+      ...stored.totals,
+      profiles: stored.totals.profiles + Math.max(0, profiles),
+      requests: stored.totals.requests + Math.max(0, requests),
+    },
+  };
   await save(userId, next);
-  const plan = next.plan ? PLANS[next.plan] : null;
-  return plan ? Math.max(0, plan.dailyProfiles - next.used) : 0;
+  const limits = next.config ? limitsOf(next.config) : null;
+  return limits ? Math.max(0, limits.dailyProfiles - next.used) : 0;
+}
+
+/** Bumps a lifetime counter that is not metered. */
+export async function bumpTotal(
+  userId: string,
+  key: keyof Totals,
+  amount = 1,
+): Promise<void> {
+  const stored = rolled(await load(userId));
+  await save(userId, {
+    ...stored,
+    totals: { ...stored.totals, [key]: stored.totals[key] + amount },
+  });
 }
 
 export async function deleteSubscription(userId: string): Promise<void> {

@@ -7,8 +7,8 @@ import { MAIL_PROVIDERS, guessProvider, providerById } from "@/lib/mailProviders
 import Select from "./Select";
 import LogoLoader from "./LogoLoader";
 import { useFilterTransition } from "./useFilterTransition";
-import PlanCards from "./PlanCards";
-import type { PlanId } from "@/lib/plans";
+import { limitsOf, type SubscriptionConfig } from "@/lib/plans";
+import AdminUserModal, { type AdminStats } from "./AdminUserModal";
 import ProfileModal from "./ProfileModal";
 import AuthModal, { type AuthMode } from "./AuthModal";
 import Landing from "./Landing";
@@ -84,8 +84,11 @@ const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
 ];
 
 type AdminAccount = {
-  plan?: string | null;
+  config?: SubscriptionConfig | null;
+  limits?: { dailyProfiles: number; price: number } | null;
   usedToday?: number;
+  totals?: AdminStats;
+  spend?: number;
   id: string;
   email: string;
   createdAt: string;
@@ -170,12 +173,14 @@ export default function Page() {
   const [guide, setGuide] = useState(false);
   const [admin, setAdmin] = useState<AdminData | null>(null);
   const [adminLoading, setAdminLoading] = useState(false);
+  const [adminDetails, setAdminDetails] = useState<AdminAccount | null>(null);
+  const [grantBusy, setGrantBusy] = useState(false);
   const [subscription, setSubscription] = useState<{
-    plan: PlanId | null;
+    config: SubscriptionConfig | null;
     usedToday: number;
+    unlimited: boolean;
     limits: { dailyProfiles: number; senders: number } | null;
   } | null>(null);
-  const [planBusy, setPlanBusy] = useState(false);
   const [sourceCheck, setSourceCheck] = useState<
     { configured: boolean; probes: { name: string; ok: boolean; detail: string }[] } | null
   >(null);
@@ -498,23 +503,6 @@ export default function Page() {
     }
   }, []);
 
-  const choosePlan = useCallback(
-    async (plan: PlanId) => {
-      setPlanBusy(true);
-      try {
-        const res = await fetch("/api/plan", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ plan }),
-        });
-        if (res.ok) setSubscription(await res.json());
-      } finally {
-        setPlanBusy(false);
-      }
-    },
-    [],
-  );
-
   useEffect(() => {
     if (!user) {
       setSubscription(null);
@@ -522,6 +510,39 @@ export default function Page() {
     }
     void loadPlan();
   }, [user, loadPlan]);
+
+  const grantPlan = useCallback(
+    async (account: AdminAccount, config: SubscriptionConfig | null) => {
+      setGrantBusy(true);
+      try {
+        const res = await fetch("/api/admin", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ userId: account.id, config }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as { config: SubscriptionConfig | null };
+          setAdminDetails((current) =>
+            current && current.id === account.id ? { ...current, config: data.config } : current,
+          );
+          setAdmin((current) =>
+            current
+              ? {
+                  ...current,
+                  accounts: current.accounts.map((row) =>
+                    row.id === account.id ? { ...row, config: data.config } : row,
+                  ),
+                }
+              : current,
+          );
+          setNotice(t.admin.granted);
+        }
+      } finally {
+        setGrantBusy(false);
+      }
+    },
+    [t],
+  );
 
   const loadAdmin = useCallback(async () => {
     setAdminLoading(true);
@@ -758,7 +779,7 @@ export default function Page() {
 
   // Until a plan is picked the only working view is Settings, so the search
   // and outreach docks have nothing to act on.
-  const gated = Boolean(user && subscription && !subscription.plan);
+  const gated = Boolean(user && subscription && !subscription.config && !subscription.unlimited);
   const foldableDock = view === "discover" || view === "settings";
 
   const onContentScroll = (event: React.UIEvent<HTMLDivElement>) => {
@@ -969,15 +990,17 @@ export default function Page() {
         <div className="content" key={view} onScroll={onContentScroll}>
           {notice ? <div className="notice">{notice}</div> : null}
 
-          {user && subscription && !subscription.plan && view !== "settings" ? (
+          {gated && view !== "settings" ? (
             <section className="subscribe-gate">
               <h1 className="view-title">{t.subscribe.title}</h1>
               <p className="view-sub">{t.subscribe.sub}</p>
-              <PlanCards copy={t.home} current={null} onChoose={choosePlan} busy={planBusy} />
+              <a className="btn subscribe-gate-cta" href="/subscribe">
+                {t.subscribe.manage}
+              </a>
             </section>
           ) : null}
 
-          {view === "discover" && (!subscription || subscription.plan) ? (
+          {view === "discover" && !gated ? (
             <>
               <h1 className="view-title">{t.discover.title}</h1>
               <p className="view-sub">{t.discover.sub}</p>
@@ -1028,7 +1051,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "compose" && subscription?.plan ? (
+          {view === "compose" && !gated ? (
             <>
               <h1 className="view-title">{t.compose.title}</h1>
               <p className="view-sub">
@@ -1081,7 +1104,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "results" && subscription?.plan ? (
+          {view === "results" && !gated ? (
             <>
               <h1 className="view-title">{t.results.title}</h1>
               <p className="view-sub">
@@ -1158,7 +1181,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "inbox" && subscription?.plan ? (
+          {view === "inbox" && !gated ? (
             <>
               <h1 className="view-title">{t.inbox.title}</h1>
               <p className="view-sub">{t.inbox.sub}</p>
@@ -1326,13 +1349,24 @@ export default function Page() {
                                 {new Date(account.createdAt).toLocaleDateString(
                                   language === "ru" ? "ru-RU" : "en-GB",
                                 )}
-                                {account.plan ? ` · ${account.plan}` : ""}
+                                {account.config ? ` · ${t.plan.volumeNames[account.config.volume]}` : ""}
                                 {account.smtpFrom ? ` · ${account.smtpFrom}` : ""}
                                 {account.instagram ? ` · ${account.instagram}` : ""}
                               </div>
                             </div>
 
                             <div className="admin-actions">
+                              <button
+                                className="info-button"
+                                title={t.admin.details}
+                                aria-label={t.admin.details}
+                                onClick={() => setAdminDetails(account)}
+                              >
+                                <svg viewBox="0 0 20 20" aria-hidden>
+                                  <circle cx="10" cy="10" r="7.25" />
+                                  <path d="M10 9v4.5M10 6.6v.1" />
+                                </svg>
+                              </button>
                               <div className="chips">
                                 {(
                                   [
@@ -1380,7 +1414,9 @@ export default function Page() {
               <div className="compose">
                 <section className="panel">
                   <h2 className="panel-title">{t.subscribe.manage}</h2>
-                  {subscription?.plan && subscription.limits ? (
+                  {subscription?.unlimited ? (
+                    <p className="hint">{t.subscribe.unlimited}</p>
+                  ) : subscription?.config && subscription.limits ? (
                     <>
                       <p className="hint">
                         {t.subscribe.usage(
@@ -1402,16 +1438,20 @@ export default function Page() {
                           }}
                         />
                       </div>
+                      <p className="hint">
+                        {t.plan.total}: ${limitsOf(subscription.config).price}
+                        {t.plan.perMonth} · {t.plan.sendersValue(subscription.config.senders)} ·{" "}
+                        {t.plan.depthNames[subscription.config.depth]}
+                      </p>
                     </>
                   ) : (
                     <p className="hint">{t.subscribe.sub}</p>
                   )}
-                  <PlanCards
-                    copy={t.home}
-                    current={subscription?.plan ?? null}
-                    onChoose={choosePlan}
-                    busy={planBusy}
-                  />
+                  {subscription?.unlimited ? null : (
+                    <a className="btn btn-ghost settings-plan-link" href="/subscribe">
+                      {subscription?.config ? t.plan.update : t.subscribe.manage}
+                    </a>
+                  )}
                 </section>
 
                 <section className="panel">
@@ -1690,7 +1730,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "compose" && subscription?.plan ? (
+          {view === "compose" && !gated ? (
             <>
               <div className="dock-fields" style={{ gridTemplateColumns: "1fr" }}>
                 <span className="dock-status">
@@ -1741,7 +1781,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "inbox" && subscription?.plan ? (
+          {view === "inbox" && !gated ? (
             <>
               <div className="dock-fields" style={{ gridTemplateColumns: "1fr" }}>
                 <span className="dock-status">{t.inbox.count(visibleInbox.length)}</span>
@@ -1776,7 +1816,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "results" && subscription?.plan ? (
+          {view === "results" && !gated ? (
             <div className="dock-fields" style={{ gridTemplateColumns: "1fr" }}>
               <span className="dock-status">{t.results.title}</span>
             </div>
@@ -1899,6 +1939,22 @@ export default function Page() {
             setView("discover");
           }}
           labels={{ ...t.auth, close: t.discover.close }}
+        />
+      ) : null}
+
+      {adminDetails ? (
+        <AdminUserModal
+          email={adminDetails.email}
+          createdAt={adminDetails.createdAt}
+          config={adminDetails.config ?? null}
+          totals={adminDetails.totals ?? { profiles: 0, requests: 0, outreach: 0, searches: 0 }}
+          spend={adminDetails.spend ?? 0}
+          usedToday={adminDetails.usedToday ?? 0}
+          copy={t.admin}
+          volumeNames={t.plan.volumeNames}
+          busy={grantBusy}
+          onGrant={(config) => void grantPlan(adminDetails, config)}
+          onClose={() => setAdminDetails(null)}
         />
       ) : null}
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { emailConfigured, runOutreach } from "@/lib/outreach";
 import { requireUser } from "@/lib/session";
-import { allowance } from "@/lib/subscription";
+import { allowance, bumpTotal } from "@/lib/subscription";
 import type { Influencer } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -12,8 +12,8 @@ export async function GET() {
   const { user, response } = await requireUser();
   if (!user) return response;
 
-  const quota = await allowance(user.id);
-  if (!quota.plan) {
+  const quota = await allowance(user.id, user.isAdmin);
+  if (!quota.limits) {
     return NextResponse.json(
       { error: "Pick a plan to use this.", reason: "no-plan" },
       { status: 402 },
@@ -69,5 +69,6 @@ export async function POST(request: Request) {
     channels,
   });
 
+  await bumpTotal(user.id, "outreach", results.length);
   return NextResponse.json({ results, emailConfigured: await emailConfigured(user.id) });
 }

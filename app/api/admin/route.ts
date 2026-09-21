@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { deleteUser, listUsers } from "@/lib/auth";
 import { deleteSettings, readSettings } from "@/lib/settings";
-import { deleteSubscription, getSubscription } from "@/lib/subscription";
+import { REQUEST_COST, deleteSubscription, getSubscription, setConfig } from "@/lib/subscription";
+import { limitsOf, normalizeConfig } from "@/lib/plans";
 import { requireAdmin } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -18,8 +19,11 @@ export async function GET() {
       const subscription = await getSubscription(account.id);
       return {
         ...account,
-        plan: subscription.plan,
+        config: subscription.config,
+        limits: subscription.config ? limitsOf(subscription.config) : null,
         usedToday: subscription.usedToday,
+        totals: subscription.totals,
+        spend: Number((subscription.totals.requests * REQUEST_COST).toFixed(2)),
         language: settings.language,
         smtp: Boolean(settings.email.host && settings.email.user && settings.email.pass),
         smtpFrom: settings.email.from || settings.email.user,
@@ -34,6 +38,7 @@ export async function GET() {
     accounts,
     integrations: {
       hiker: Boolean(process.env.HIKER_TOKEN),
+      requestCost: REQUEST_COST,
       apify: Boolean(process.env.APIFY_TOKEN),
       apifyActor: process.env.APIFY_ACTOR_ID ?? "apify~instagram-scraper",
       instagramGraph: Boolean(process.env.IG_ACCESS_TOKEN && process.env.IG_BUSINESS_ACCOUNT_ID),
@@ -41,6 +46,23 @@ export async function GET() {
       dataDir: process.env.DATA_DIR ?? ".data",
       node: process.version,
     },
+  });
+}
+
+/** Grants or clears a subscription on someone else's account. */
+export async function PATCH(request: Request) {
+  const { user, response } = await requireAdmin();
+  if (!user) return response;
+
+  const body = (await request.json().catch(() => ({}))) as { userId?: string; config?: unknown };
+  if (!body.userId) return NextResponse.json({ error: "No account given." }, { status: 400 });
+
+  const config = body.config === null ? null : normalizeConfig(body.config);
+  const subscription = await setConfig(body.userId, config);
+  return NextResponse.json({
+    userId: body.userId,
+    config: subscription.config,
+    limits: subscription.config ? limitsOf(subscription.config) : null,
   });
 }
 

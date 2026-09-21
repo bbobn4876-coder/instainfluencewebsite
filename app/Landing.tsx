@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import PlanCards from "./PlanCards";
 import { dict, type Language } from "@/lib/i18n";
 
 /**
@@ -110,8 +109,11 @@ export default function Landing({
         <section className="landing-section" id="pricing">
           <h2 className="home-section">{t.pricingTitle}</h2>
           <p className="home-feature-body landing-pricing-sub">{t.pricingSub}</p>
-          {/* Choosing a plan while signed out starts the sign-up. */}
-          <PlanCards copy={t} onChoose={onSignUp} />
+          {/* One subscription, configured on its own page; signed-out visitors
+              sign up first and land there afterwards. */}
+          <button className="btn landing-pricing-cta" onClick={onSignUp}>
+            {t.pricingCta}
+          </button>
         </section>
 
         <section className="landing-section" id="faq">

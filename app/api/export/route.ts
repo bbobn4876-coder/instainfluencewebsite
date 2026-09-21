@@ -11,8 +11,8 @@ export async function POST(request: Request) {
   const { user, response } = await requireUser();
   if (!user) return response;
 
-  const quota = await allowance(user.id);
-  if (!quota.plan) {
+  const quota = await allowance(user.id, user.isAdmin);
+  if (!quota.limits) {
     return NextResponse.json(
       { error: "Pick a plan to use this.", reason: "no-plan" },
       { status: 402 },

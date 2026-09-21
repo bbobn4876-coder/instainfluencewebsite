@@ -4,10 +4,16 @@ import type { CrawlStats } from "@/lib/crawl";
 import { stepHikerCrawl } from "@/lib/hikerCrawl";
 import { ALL, countryByCode } from "@/lib/countries";
 import { requireUser } from "@/lib/session";
-import { allowance, recordUsage } from "@/lib/subscription";
+import { allowance, bumpTotal, recordUsage } from "@/lib/subscription";
 import type { SearchQuery } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+/** Admins are unlimited, so their reads are counted but never charged down. */
+async function meter(user: { id: string; isAdmin: boolean }, read: number): Promise<number> {
+  const remaining = await recordUsage(user.id, user.isAdmin ? 0 : read, read);
+  return user.isAdmin ? Number.MAX_SAFE_INTEGER : remaining;
+}
 
 const quotaSpent = (limit: number) =>
   `Stopped at today's allowance of ${limit.toLocaleString("en-US")} profiles. It resets at midnight UTC.`;
@@ -17,8 +23,8 @@ export async function POST(request: Request) {
   if (!user) return response;
 
   // Parsing is what a plan pays for, so it is the one gate that matters.
-  const quota = await allowance(user.id);
-  if (!quota.plan) {
+  const quota = await allowance(user.id, user.isAdmin);
+  if (!quota.limits) {
     return NextResponse.json(
       { error: "Pick a plan to start parsing.", reason: "no-plan" },
       { status: 402 },
@@ -27,7 +33,7 @@ export async function POST(request: Request) {
   if (quota.remaining <= 0) {
     return NextResponse.json(
       {
-        error: `Today's allowance of ${quota.plan.dailyProfiles.toLocaleString("en-US")} profiles is used up. It resets at midnight UTC.`,
+        error: `Today's allowance of ${quota.limits.dailyProfiles.toLocaleString("en-US")} profiles is used up. It resets at midnight UTC.`,
         reason: "quota",
       },
       { status: 429 },
@@ -88,6 +94,7 @@ export async function POST(request: Request) {
         : null;
     try {
       // A round never reads more profiles than the plan still allows.
+      if (!run) await bumpTotal(user.id, "searches");
       const state = await stepHikerCrawl(run, query, quota.remaining);
       if (state.status === "failed") {
         // Mid-crawl the client already holds real results; sample data would
@@ -104,7 +111,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ ...fallback, status: "done", notice: state.detail });
       }
       if (state.status === "running") {
-        const remaining = await recordUsage(user.id, state.read ?? 0);
+        const remaining = await meter(user, state.read ?? 0);
         return NextResponse.json({
           provider: "hiker",
           status: remaining > 0 ? "running" : "done",
@@ -112,10 +119,10 @@ export async function POST(request: Request) {
           influencers: state.influencers ?? [],
           scanned: state.scanned,
           remaining,
-          notice: remaining > 0 ? undefined : quotaSpent(quota.plan.dailyProfiles),
+          notice: remaining > 0 ? undefined : quotaSpent(quota.limits.dailyProfiles),
         });
       }
-      const remaining = await recordUsage(user.id, state.read ?? 0);
+      const remaining = await meter(user, state.read ?? 0);
       return NextResponse.json({
         provider: "hiker",
         status: "done",

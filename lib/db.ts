@@ -42,11 +42,14 @@ async function migrate(): Promise<void> {
     );
     CREATE TABLE IF NOT EXISTS subscriptions (
       user_id    text PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-      plan       text,
+      config     jsonb,
       started_at timestamptz,
       day        text,
-      used       integer NOT NULL DEFAULT 0
+      used       integer NOT NULL DEFAULT 0,
+      totals     jsonb NOT NULL DEFAULT '{}'::jsonb
     );
+    ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS config jsonb;
+    ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS totals jsonb NOT NULL DEFAULT '{}'::jsonb;
     CREATE TABLE IF NOT EXISTS app_meta (
       key   text PRIMARY KEY,
       value text NOT NULL
