@@ -9,6 +9,7 @@ import LogoLoader from "./LogoLoader";
 import { useFilterTransition } from "./useFilterTransition";
 import { limitsOf, type SubscriptionConfig } from "@/lib/plans";
 import AdminUserModal, { type AdminStats } from "./AdminUserModal";
+import SubscribeCallout from "./SubscribeCallout";
 import ProfileModal from "./ProfileModal";
 import AuthModal, { type AuthMode } from "./AuthModal";
 import Landing from "./Landing";
@@ -991,13 +992,11 @@ export default function Page() {
           {notice ? <div className="notice">{notice}</div> : null}
 
           {gated && view !== "settings" ? (
-            <section className="subscribe-gate">
-              <h1 className="view-title">{t.subscribe.title}</h1>
-              <p className="view-sub">{t.subscribe.sub}</p>
-              <a className="btn subscribe-gate-cta" href="/subscribe">
-                {t.subscribe.manage}
-              </a>
-            </section>
+            <SubscribeCallout
+              title={t.home.pricingHeadline}
+              body={t.subscribe.sub}
+              action={t.subscribe.manage}
+            />
           ) : null}
 
           {view === "discover" && !gated ? (
@@ -1412,6 +1411,14 @@ export default function Page() {
               <h1 className="view-title">{t.settings.title}</h1>
               <p className="view-sub">{t.settings.sub}</p>
               <div className="compose">
+                {gated ? (
+                  <SubscribeCallout
+                    title={t.home.pricingHeadline}
+                    body={t.subscribe.sub}
+                    action={t.subscribe.manage}
+                    compact
+                  />
+                ) : (
                 <section className="panel">
                   <h2 className="panel-title">{t.subscribe.manage}</h2>
                   {subscription?.unlimited ? (
@@ -1453,6 +1460,7 @@ export default function Page() {
                     </a>
                   )}
                 </section>
+                )}
 
                 <section className="panel">
                   <h2 className="panel-title">{t.settings.language}</h2>
@@ -1470,6 +1478,8 @@ export default function Page() {
                   </div>
                 </section>
 
+                {gated ? null : (
+                  <>
                 <section className="panel">
                   <h2 className="panel-title">{t.settings.motion}</h2>
                   <p className="hint">{t.settings.motionHint}</p>
@@ -1683,6 +1693,8 @@ export default function Page() {
                     )}
                   </div>
                 </section>
+                  </>
+                )}
               </div>
             </>
           ) : null}
@@ -1758,7 +1770,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "settings" ? (
+          {view === "settings" && !gated ? (
             <>
               <div className="dock-fields" style={{ gridTemplateColumns: "1fr" }}>
                 <span className="dock-status">
@@ -1828,7 +1840,7 @@ export default function Page() {
           </div>
         ) : null}
 
-        {foldableDock && !(gated && view === "discover") ? (
+        {foldableDock && !gated ? (
           <div className="dock-mini" data-open={dockCompact} aria-hidden={!dockCompact}>
           {view === "settings" ? (
               <>

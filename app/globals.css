@@ -32,7 +32,8 @@ body {
   overflow: hidden;
 }
 
-body:has(.landing) {
+body:has(.landing),
+body:has(.subscribe) {
   overflow-y: auto;
 }
 
@@ -100,6 +101,12 @@ html[data-motion="off"]:has(.landing) {
   place-items: center;
   background: var(--bg);
   pointer-events: none;
+}
+
+/* Before the client decides whether to play, the overlay stays invisible —
+   otherwise a slow first load shows nothing but its opaque background. */
+.intro[data-phase="hidden"] {
+  opacity: 0;
 }
 
 .intro[data-phase="out"] {
@@ -3491,4 +3498,66 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* ---------- subscribe callout ---------- */
+
+.callout {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(154, 34, 70, 0.4);
+  border-radius: 20px;
+  isolation: isolate;
+}
+
+.callout-inner {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 72px 28px;
+  text-align: center;
+}
+
+.callout[data-compact="true"] .callout-inner {
+  padding: 48px 24px;
+}
+
+.callout-title {
+  margin: 0;
+  max-width: 18ch;
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+
+.callout[data-compact="true"] .callout-title {
+  font-size: 26px;
+}
+
+.callout-body {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.callout-action {
+  margin-top: 6px;
+  padding: 12px 28px;
+  text-decoration: none;
+}
+
+@media (max-width: 600px) {
+  .callout-inner {
+    padding: 48px 20px;
+  }
+
+  .callout-title {
+    font-size: 26px;
+  }
 }

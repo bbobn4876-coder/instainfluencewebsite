@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import SubscribeCallout from "./SubscribeCallout";
 import { dict, type Language } from "@/lib/i18n";
 
 /**
@@ -108,12 +109,14 @@ export default function Landing({
 
         <section className="landing-section" id="pricing">
           <h2 className="home-section">{t.pricingTitle}</h2>
-          <p className="home-feature-body landing-pricing-sub">{t.pricingSub}</p>
           {/* One subscription, configured on its own page; signed-out visitors
               sign up first and land there afterwards. */}
-          <button className="btn landing-pricing-cta" onClick={onSignUp}>
-            {t.pricingCta}
-          </button>
+          <SubscribeCallout
+            title={t.pricingHeadline}
+            body={t.pricingSub}
+            action={t.pricingCta}
+            onAction={onSignUp}
+          />
         </section>
 
         <section className="landing-section" id="faq">

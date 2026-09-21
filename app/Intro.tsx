@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 const FADE_IN = 900;
 const HOLD = 700;
@@ -12,8 +13,15 @@ const FADE_OUT = 900;
  */
 export default function Intro() {
   const [phase, setPhase] = useState<"hidden" | "in" | "out" | "done">("hidden");
+  const pathname = usePathname();
+  // The splash belongs to the app itself, not to pages opened from it.
+  const skip = pathname !== "/";
 
   useEffect(() => {
+    if (skip) {
+      setPhase("done");
+      return;
+    }
     let motionOff = false;
     try {
       motionOff = window.localStorage.getItem("motion") === "off";
@@ -32,7 +40,7 @@ export default function Intro() {
       window.clearTimeout(toOut);
       window.clearTimeout(toDone);
     };
-  }, []);
+  }, [skip]);
 
   if (phase === "done") return null;
 
