@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 
+/** How long each benefit stays on screen. */
+const PERK_MS = 4200;
+
 type Labels = {
+  perks: readonly { title: string; body: string }[];
   signIn: string;
   signUp: string;
   email: string;
@@ -35,6 +39,16 @@ export default function AuthModal({
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [perk, setPerk] = useState(0);
+
+  useEffect(() => {
+    if (labels.perks.length < 2) return;
+    const timer = window.setInterval(
+      () => setPerk((current) => (current + 1) % labels.perks.length),
+      PERK_MS,
+    );
+    return () => window.clearInterval(timer);
+  }, [labels.perks.length]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -70,62 +84,94 @@ export default function AuthModal({
   const title = mode === "signup" ? labels.signUp : labels.signIn;
 
   return (
-    <div className="modal-backdrop" onClick={onClose} role="presentation">
-      <form
-        className="modal auth-modal"
-        onClick={(event) => event.stopPropagation()}
-        onSubmit={submit}
-      >
-        <button type="button" className="modal-close" onClick={onClose} aria-label={labels.close}>
-          <svg viewBox="0 0 20 20" aria-hidden>
-            <path d="M5 5l10 10M15 5L5 15" />
-          </svg>
-        </button>
+    /* No click-through close here: losing a half-typed password to a stray
+       click on the backdrop is worse than having to aim for the cross. */
+    <div className="modal-backdrop" role="presentation">
+      <div className="auth-dialog" role="dialog" aria-modal aria-label={title}>
+        <aside className="auth-aside">
+          <div className="subscribe-glow" aria-hidden />
+          <div className="subscribe-noise" aria-hidden />
 
-        <h2 className="modal-title">{title}</h2>
+          <div className="auth-aside-inner">
+            <div className="auth-brand">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/iconinfluence.png" alt="" />
+              <span>Loomera</span>
+            </div>
 
-        {error ? <div className="notice">{error}</div> : null}
+            <div className="auth-perks">
+              <div className="auth-perk" key={perk}>
+                <h3>{labels.perks[perk]?.title}</h3>
+                <p>{labels.perks[perk]?.body}</p>
+              </div>
+              <div className="auth-dots">
+                {labels.perks.map((item, index) => (
+                  <button
+                    type="button"
+                    key={item.title}
+                    className="auth-dot"
+                    data-active={index === perk}
+                    aria-label={item.title}
+                    onClick={() => setPerk(index)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </aside>
 
-        <label className="field">
-          {labels.email}
-          <input
-            type="email"
-            autoFocus
-            required
-            value={email}
-            placeholder="you@domain.com"
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </label>
+        <form className="auth-form" onSubmit={submit}>
+          <button type="button" className="modal-close" onClick={onClose} aria-label={labels.close}>
+            <svg viewBox="0 0 20 20" aria-hidden>
+              <path d="M5 5l10 10M15 5L5 15" />
+            </svg>
+          </button>
 
-        <label className="field">
-          {labels.password}
-          <input
-            type="password"
-            required
-            minLength={8}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          {mode === "signup" ? <span className="field-hint">{labels.passwordHint}</span> : null}
-        </label>
+          <h2 className="auth-title">{title}</h2>
 
-        <button className="btn" type="submit" disabled={busy}>
-          {busy ? labels.working : mode === "signup" ? labels.submitUp : labels.submitIn}
-        </button>
+          {error ? <div className="notice">{error}</div> : null}
 
-        <button
-          type="button"
-          className="auth-switch"
-          onClick={() => {
-            setError(null);
-            onMode(mode === "signup" ? "signin" : "signup");
-          }}
-        >
-          {mode === "signup" ? labels.haveAccount : labels.noAccount}{" "}
-          <span>{mode === "signup" ? labels.signIn : labels.signUp}</span>
-        </button>
-      </form>
+          <label className="field">
+            {labels.email}
+            <input
+              type="email"
+              autoFocus
+              required
+              value={email}
+              placeholder="you@domain.com"
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </label>
+
+          <label className="field">
+            {labels.password}
+            <input
+              type="password"
+              required
+              minLength={8}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            {mode === "signup" ? <span className="field-hint">{labels.passwordHint}</span> : null}
+          </label>
+
+          <button className="btn auth-submit" type="submit" disabled={busy}>
+            {busy ? labels.working : mode === "signup" ? labels.submitUp : labels.submitIn}
+          </button>
+
+          <button
+            type="button"
+            className="auth-switch"
+            onClick={() => {
+              setError(null);
+              onMode(mode === "signup" ? "signin" : "signup");
+            }}
+          >
+            {mode === "signup" ? labels.haveAccount : labels.noAccount}{" "}
+            <span>{mode === "signup" ? labels.signIn : labels.signUp}</span>
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

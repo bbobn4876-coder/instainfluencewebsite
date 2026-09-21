@@ -3575,3 +3575,226 @@ textarea {
     font-size: 26px;
   }
 }
+
+/* Held while the session check answers: the page background, nothing else. */
+.boot {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+}
+
+/* The configurator arrives and leaves rather than cutting in and out. */
+.subscribe[data-transition] {
+  transition:
+    opacity 0.26s ease,
+    transform 0.26s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.subscribe[data-transition="enter"] {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.subscribe[data-transition="in"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.subscribe[data-transition="out"] {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .subscribe[data-transition] {
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- auth dialog ---------- */
+
+.auth-dialog {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  width: min(900px, 100%);
+  min-height: min(540px, 90vh);
+  max-height: min(640px, 92vh);
+  overflow: hidden;
+  border: 1px solid rgba(154, 34, 70, 0.45);
+  border-radius: 22px;
+  background: var(--surface-strong, rgba(16, 10, 13, 0.96));
+  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.6);
+  animation: dialog-in 0.32s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.auth-aside {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.auth-aside .subscribe-glow {
+  filter: blur(46px) saturate(115%);
+}
+
+.auth-aside-inner {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  height: 100%;
+  padding: 36px 26px 30px;
+  text-align: center;
+}
+
+/* The mark sits in the middle of the panel, the slider along its foot. */
+.auth-brand {
+  margin: auto 0;
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 21px;
+  font-weight: 600;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.6);
+}
+
+.auth-brand img {
+  width: 22px;
+  height: auto;
+  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.7));
+}
+
+.auth-perks {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.auth-perk {
+  min-height: 108px;
+  animation: perk-in 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes perk-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.auth-perk h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.auth-perk p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.74);
+}
+
+.auth-dots {
+  display: flex;
+  gap: 7px;
+}
+
+.auth-dot {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.28);
+  cursor: pointer;
+  transition:
+    background 0.25s ease,
+    width 0.25s ease;
+}
+
+.auth-dot[data-active="true"] {
+  width: 18px;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.auth-form {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 40px 38px;
+  overflow-y: auto;
+}
+
+.auth-title {
+  margin: 0 0 4px;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.auth-form .field {
+  font-size: 12px;
+}
+
+.auth-form input {
+  padding: 13px 14px;
+  font-size: 14px;
+}
+
+.auth-submit {
+  margin-top: 4px;
+  padding: 14px 22px;
+  justify-content: center;
+  font-size: 15px;
+}
+
+@media (max-width: 760px) {
+  .auth-dialog {
+    grid-template-columns: 1fr;
+    max-height: 94vh;
+  }
+
+  .auth-aside {
+    min-height: 210px;
+  }
+
+  .auth-aside-inner {
+    padding: 24px 20px 20px;
+  }
+
+  .auth-perk {
+    min-height: 88px;
+  }
+
+  .auth-form {
+    padding: 28px 22px;
+  }
+}

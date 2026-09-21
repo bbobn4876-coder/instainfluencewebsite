@@ -887,6 +887,11 @@ export default function Page() {
     </>
   );
 
+  // Until the session check answers, neither view is the right one: showing
+  // the landing meanwhile made a signed-in visitor watch it flash past on the
+  // way back from the configurator.
+  if (!authResolved) return <div className="boot" aria-hidden />;
+
   // Signed-out visitors only ever see the landing page; the app shell, its
   // sidebar and its pages exist for accounts.
   if (!user) {

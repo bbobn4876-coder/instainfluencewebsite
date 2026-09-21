@@ -20,6 +20,9 @@ import {
 } from "@/lib/plans";
 import { dict, type Language } from "@/lib/i18n";
 
+/** Matches the exit transition in the stylesheet. */
+const LEAVE_MS = 260;
+
 /**
  * The subscription configurator: options on the right, a running summary on
  * the left. Prices add up the way a hardware configurator works, so the total
@@ -31,7 +34,22 @@ export default function Subscribe() {
   const [saved, setSaved] = useState<SubscriptionConfig | null>(null);
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
+  // "in" once mounted, "out" while the page hands control back.
+  const [transition, setTransition] = useState<"enter" | "in" | "out">("enter");
   const t = dict(language).plan;
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setTransition("in"));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  /** Plays the exit before handing over, so the change of page is not a cut. */
+  const leaveTo = useCallback((href: string) => {
+    setTransition("out");
+    window.setTimeout(() => {
+      window.location.href = href;
+    }, LEAVE_MS);
+  }, []);
 
   useEffect(() => {
     // Tells the app not to splash when this page hands control back.
@@ -85,11 +103,11 @@ export default function Subscribe() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ config }),
       });
-      if (res.ok) window.location.href = "/";
+      if (res.ok) leaveTo("/");
     } finally {
       setBusy(false);
     }
-  }, [config]);
+  }, [config, leaveTo]);
 
   const cancel = useCallback(async () => {
     setBusy(true);
@@ -99,20 +117,27 @@ export default function Subscribe() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ config: null }),
       });
-      if (res.ok) window.location.href = "/";
+      if (res.ok) leaveTo("/");
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [leaveTo]);
 
   return (
-    <div className="subscribe">
+    <div className="subscribe" data-transition={transition}>
       <aside className="subscribe-aside">
         <div className="subscribe-glow" aria-hidden />
         <div className="subscribe-noise" aria-hidden />
 
         <div className="subscribe-aside-inner">
-          <a className="subscribe-brand" href="/">
+          <a
+            className="subscribe-brand"
+            href="/"
+            onClick={(event) => {
+              event.preventDefault();
+              leaveTo("/");
+            }}
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/iconinfluence.png" alt="" />
             <span>Loomera</span>
@@ -153,7 +178,14 @@ export default function Subscribe() {
       <main className="subscribe-main">
         <header className="subscribe-head">
           <div className="subscribe-head-row">
-            <a className="subscribe-back" href="/">
+            <a
+              className="subscribe-back"
+              href="/"
+              onClick={(event) => {
+                event.preventDefault();
+                leaveTo("/");
+              }}
+            >
               ← {t.back}
             </a>
             <button
