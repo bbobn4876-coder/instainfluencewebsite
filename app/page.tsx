@@ -792,8 +792,12 @@ export default function Page() {
   );
 
   // Until a plan is picked the only working view is Settings, so the search
-  // and outreach docks have nothing to act on.
-  const gated = Boolean(user && subscription && !subscription.config && !subscription.unlimited);
+  // and outreach docks have nothing to act on. The subscription has to have
+  // been read before anything is decided: treating "not loaded yet" as "not
+  // gated" showed Discover for a moment before the gate replaced it.
+  const planReady = subscription !== null;
+  const gated = planReady && !subscription.config && !subscription.unlimited;
+  const appReady = planReady && !gated;
   const foldableDock = view === "discover" || view === "settings";
 
   const onContentScroll = (event: React.UIEvent<HTMLDivElement>) => {
@@ -1017,7 +1021,7 @@ export default function Page() {
             />
           ) : null}
 
-          {view === "discover" && !gated ? (
+          {view === "discover" && appReady ? (
             <>
               <h1 className="view-title">{t.discover.title}</h1>
               <p className="view-sub">{t.discover.sub}</p>
@@ -1068,7 +1072,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "compose" && !gated ? (
+          {view === "compose" && appReady ? (
             <>
               <h1 className="view-title">{t.compose.title}</h1>
               <p className="view-sub">
@@ -1121,7 +1125,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "results" && !gated ? (
+          {view === "results" && appReady ? (
             <>
               <h1 className="view-title">{t.results.title}</h1>
               <p className="view-sub">
@@ -1198,7 +1202,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "inbox" && !gated ? (
+          {view === "inbox" && appReady ? (
             <>
               <h1 className="view-title">{t.inbox.title}</h1>
               <p className="view-sub">{t.inbox.sub}</p>
@@ -1424,7 +1428,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "settings" ? (
+          {view === "settings" && planReady ? (
             <>
               <h1 className="view-title">{t.settings.title}</h1>
               <p className="view-sub">{t.settings.sub}</p>
@@ -1723,7 +1727,7 @@ export default function Page() {
         </div>
 
         <div className="dock" data-compact={foldableDock && dockCompact}>
-          {view === "discover" && !gated ? (
+          {view === "discover" && appReady ? (
             <>
               <div className="dock-fields dock-search">{searchFields}
               </div>
@@ -1764,7 +1768,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "compose" && !gated ? (
+          {view === "compose" && appReady ? (
             <>
               <div className="dock-fields" style={{ gridTemplateColumns: "1fr" }}>
                 <span className="dock-status">
@@ -1792,7 +1796,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "settings" && !gated ? (
+          {view === "settings" && appReady ? (
             <>
               <div className="dock-fields" style={{ gridTemplateColumns: "1fr" }}>
                 <span className="dock-status">
@@ -1815,7 +1819,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "inbox" && !gated ? (
+          {view === "inbox" && appReady ? (
             <>
               <div className="dock-fields" style={{ gridTemplateColumns: "1fr" }}>
                 <span className="dock-status">{t.inbox.count(visibleInbox.length)}</span>
@@ -1850,19 +1854,19 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "results" && !gated ? (
+          {view === "results" && appReady ? (
             <div className="dock-fields" style={{ gridTemplateColumns: "1fr" }}>
               <span className="dock-status">{t.results.title}</span>
             </div>
           ) : null}
         </div>
-        {foldableDock && view === "discover" && !gated ? (
+        {foldableDock && view === "discover" && appReady ? (
           <div className="mini-panel" data-open={miniFilters && (dockCompact || isNarrow)}>
             {searchFields}
           </div>
         ) : null}
 
-        {foldableDock && !gated ? (
+        {foldableDock && appReady ? (
           <div className="dock-mini" data-open={dockCompact} aria-hidden={!dockCompact}>
           {view === "settings" ? (
               <>
