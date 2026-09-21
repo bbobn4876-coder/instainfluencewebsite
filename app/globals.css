@@ -2856,3 +2856,30 @@ textarea {
     min-width: 0;
   }
 }
+
+/* Filtering the grid: cards on their way out fade and shrink in place while
+   the ones that stay glide to their new spots (handled in script). */
+.card[data-leaving="true"] {
+  pointer-events: none;
+  animation: card-out 0.3s cubic-bezier(0.4, 0, 0.6, 1) both;
+}
+
+@keyframes card-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.94);
+    filter: blur(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card[data-leaving="true"] {
+    animation: none;
+    opacity: 0;
+  }
+}

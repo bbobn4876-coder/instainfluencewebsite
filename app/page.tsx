@@ -6,6 +6,7 @@ import { dict, type Language } from "@/lib/i18n";
 import { MAIL_PROVIDERS, guessProvider, providerById } from "@/lib/mailProviders";
 import Select from "./Select";
 import LogoLoader from "./LogoLoader";
+import { useFilterTransition } from "./useFilterTransition";
 import ProfileModal from "./ProfileModal";
 import AuthModal, { type AuthMode } from "./AuthModal";
 import Landing from "./Landing";
@@ -665,7 +666,12 @@ export default function Page() {
 
   const emailReady = Boolean(settings.email.host && settings.email.user && settings.email.hasPassword);
 
-  const visibleInfluencers = onlySelected ? selected : influencers;
+  const visibleInfluencers = useMemo(
+    () => (onlySelected ? selected : influencers),
+    [onlySelected, selected, influencers],
+  );
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const { rendered: cards, leaving } = useFilterTransition(visibleInfluencers, gridRef, motion);
 
   const allSelected = influencers.length > 0 && selectedIds.length === influencers.length;
 
@@ -948,10 +954,12 @@ export default function Page() {
               ) : visibleInfluencers.length === 0 ? (
                 <div className="empty">{t.discover.emptySelected}</div>
               ) : (
-                <div className="grid">
-                  {visibleInfluencers.map((influencer) => (
+                <div className="grid" ref={gridRef}>
+                  {cards.map((influencer) => (
                     <InfluencerCard
                       key={influencer.id}
+                      flipId={influencer.id}
+                      leaving={leaving.has(influencer.id)}
                       influencer={influencer}
                       selected={selectedIds.includes(influencer.id)}
                       onToggle={() => toggle(influencer.id)}
@@ -1819,12 +1827,16 @@ function InfluencerCard({
   onToggle,
   onInfo,
   labels,
+  flipId,
+  leaving,
 }: {
   influencer: Influencer;
   selected: boolean;
   onToggle: () => void;
   onInfo: () => void;
   labels: { followers: string; engagement: string; nicheLabel: string; info: string };
+  flipId?: string;
+  leaving?: boolean;
 }) {
   const country = countryByCode(influencer.country);
   // Where the profile is from, which the cards never said before.
@@ -1836,6 +1848,9 @@ function InfluencerCard({
     <div
       className="card"
       data-selected={selected}
+      data-flip-id={flipId}
+      data-leaving={leaving ? "true" : undefined}
+      aria-hidden={leaving || undefined}
       role="checkbox"
       aria-checked={selected}
       tabIndex={0}
