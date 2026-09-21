@@ -1026,6 +1026,7 @@ export default function Page() {
         {pitching ? (
           <PitchModal
             slides={t.home.pitch}
+            art={t.home.pitchArt}
             title={t.home.pitchTitle}
             next={t.home.pitchNext}
             start={t.home.pitchStart}

@@ -3965,40 +3965,88 @@ textarea {
 
 /* ---------- pitch ---------- */
 
+/* The same window as the sign-in dialog it hands over to. */
 .pitch {
-  position: relative;
-  width: min(760px, 100%);
-  min-height: min(500px, 88vh);
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  width: min(900px, 100%);
+  min-height: min(540px, 90vh);
+  max-height: min(640px, 92vh);
   overflow: hidden;
-  isolation: isolate;
   border: 1px solid rgba(154, 34, 70, 0.45);
-  border-radius: 24px;
-  background: var(--bg);
+  border-radius: 22px;
+  background: var(--surface-strong, rgba(16, 10, 13, 0.96));
   box-shadow: 0 40px 120px rgba(0, 0, 0, 0.6);
   animation: dialog-in 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
 
-.pitch-inner {
+/* Leaves the way the sign-in dialog arrives, so the two read as one window. */
+.pitch[data-leaving="true"] {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.985);
+  transition:
+    opacity 0.26s ease,
+    transform 0.26s cubic-bezier(0.32, 0.72, 0.24, 1);
+}
+
+.pitch-aside {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 28px 24px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.pitch-aside .subscribe-glow {
+  filter: blur(52px) saturate(118%);
+}
+
+/* A heavier grain than the configurator's, since this panel is mostly texture. */
+.pitch-noise {
+  opacity: 0.72;
+  background-size: 130px 130px;
+}
+
+.pitch-art {
   position: relative;
   z-index: 2;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  animation: art-in 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes art-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.pitch-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 28px;
-  height: 100%;
-  min-height: inherit;
-  padding: 38px 44px 34px;
+  gap: 22px;
+  padding: 36px 38px 30px;
+  overflow-y: auto;
 }
 
 .pitch-brand {
   display: flex;
   align-items: center;
   gap: 11px;
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 600;
 }
 
 .pitch-brand img {
-  width: 21px;
+  width: 20px;
   height: auto;
 }
 
@@ -4007,14 +4055,13 @@ textarea {
   flex-direction: column;
   gap: 12px;
   margin: auto 0;
-  max-width: 34rem;
   animation: pitch-in 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
 
 @keyframes pitch-in {
   from {
     opacity: 0;
-    transform: translateX(16px);
+    transform: translateX(14px);
   }
   to {
     opacity: 1;
@@ -4036,15 +4083,15 @@ textarea {
 
 .pitch-title {
   margin: 0;
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 600;
   letter-spacing: -0.025em;
-  line-height: 1.18;
+  line-height: 1.2;
 }
 
 .pitch-body {
   margin: 0;
-  font-size: 14px;
+  font-size: 13.5px;
   line-height: 1.68;
   color: rgba(255, 255, 255, 0.76);
 }
@@ -4062,15 +4109,281 @@ textarea {
 }
 
 .pitch-action {
-  padding: 13px 30px;
+  padding: 12px 26px;
 }
 
-@media (max-width: 700px) {
-  .pitch-inner {
-    padding: 28px 22px 24px;
+/* ---------- pitch artwork ---------- */
+
+.art-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 250px;
+}
+
+.art-card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(12, 8, 10, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.art-card:first-child {
+  border-color: rgba(154, 34, 70, 0.7);
+  transform: rotate(-1.2deg);
+}
+
+.art-card:last-child {
+  transform: rotate(1deg) translateX(8px);
+}
+
+.art-card-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.art-card-head b {
+  display: block;
+  font-size: 12px;
+}
+
+.art-card-head small,
+.art-stats small {
+  display: block;
+  font-size: 9.5px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.art-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, #6d1330, #9c2347);
+}
+
+.art-stats {
+  display: flex;
+  gap: 16px;
+}
+
+.art-stats b {
+  font-size: 13px;
+}
+
+.art-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.art-chip {
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.art-chip-mail {
+  border-color: rgba(154, 34, 70, 0.75);
+  background: rgba(109, 19, 48, 0.4);
+  color: #edd3dc;
+}
+
+.art-sheet {
+  width: 100%;
+  max-width: 250px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(12, 8, 10, 0.72);
+}
+
+.art-sheet-bar {
+  padding-bottom: 9px;
+  margin-bottom: 9px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.art-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 0;
+}
+
+.art-cell {
+  height: 6px;
+  flex: 1;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.art-cell-wide {
+  flex: 2;
+}
+
+.art-cell-thin {
+  flex: 0 0 22px;
+}
+
+.art-row[data-stale="true"] .art-cell {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.art-stale {
+  font-size: 8.5px;
+  font-style: normal;
+  color: #c2506d;
+  white-space: nowrap;
+}
+
+.art-note {
+  margin: 10px 0 0;
+  font-size: 10px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.art-fan {
+  position: relative;
+  width: 100%;
+  max-width: 250px;
+}
+
+.art-letter {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(12, 8, 10, 0.86);
+}
+
+.art-letter b {
+  font-size: 12px;
+}
+
+.art-letter-back,
+.art-letter-mid {
+  position: absolute;
+  inset: 0;
+  background: rgba(12, 8, 10, 0.6);
+}
+
+.art-letter-back {
+  transform: rotate(-5deg) translateY(-8px);
+}
+
+.art-letter-mid {
+  transform: rotate(3deg) translateY(-4px);
+}
+
+.art-line {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.art-line-short {
+  width: 62%;
+}
+
+.art-token {
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(156, 35, 71, 0.55);
+  box-shadow: 0 0 0 1px rgba(154, 34, 70, 0.8);
+  font-size: 10px;
+  color: #fff;
+}
+
+.art-receipt {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: 100%;
+  max-width: 240px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(12, 8, 10, 0.72);
+}
+
+.art-receipt-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.art-receipt-line b {
+  color: #fff;
+}
+
+.art-receipt-total {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.art-receipt-total span {
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.art-receipt-total p {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  margin: 0;
+}
+
+.art-receipt-total b {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.art-receipt-total small {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+@media (max-width: 760px) {
+  .pitch {
+    grid-template-columns: 1fr;
+    max-height: 94vh;
+  }
+
+  .pitch-aside {
+    min-height: 190px;
+    padding: 20px;
+  }
+
+  .pitch-panel {
+    padding: 24px 22px 22px;
   }
 
   .pitch-title {
-    font-size: 24px;
+    font-size: 22px;
   }
 }
+

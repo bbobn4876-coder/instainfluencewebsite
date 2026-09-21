@@ -1,16 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import PitchArt from "./PitchArt";
 
 type Slide = { kicker: string; title: string; body: string };
+
+/** Matches the exit transition in the stylesheet. */
+const LEAVE_MS = 260;
 
 /**
  * What the product does, for a visitor who asked about the subscription before
  * they have an account. Four steps — what it is, what hurts, what it looks like
- * in use, and the way in — in the configurator's own clothes.
+ * in use, and the way in — laid out like the sign-in dialog it hands over to,
+ * so the change of panel reads as one window rather than two.
  */
 export default function PitchModal({
   slides,
+  art,
   title,
   next,
   start,
@@ -19,6 +25,7 @@ export default function PitchModal({
   onClose,
 }: {
   slides: readonly Slide[];
+  art: React.ComponentProps<typeof PitchArt>["copy"];
   title: string;
   next: string;
   start: string;
@@ -27,7 +34,14 @@ export default function PitchModal({
   onClose: () => void;
 }) {
   const [step, setStep] = useState(0);
+  const [leaving, setLeaving] = useState(false);
   const last = step === slides.length - 1;
+
+  /** Plays the exit before the sign-in dialog takes its place. */
+  const handover = useCallback(() => {
+    setLeaving(true);
+    window.setTimeout(onStart, LEAVE_MS);
+  }, [onStart]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -41,17 +55,22 @@ export default function PitchModal({
 
   return (
     <div className="modal-backdrop" role="presentation">
-      <div className="pitch" role="dialog" aria-modal aria-label={title}>
-        <div className="subscribe-glow" aria-hidden />
-        <div className="subscribe-noise" aria-hidden />
+      <div className="pitch" data-leaving={leaving} role="dialog" aria-modal aria-label={title}>
+        <aside className="pitch-aside">
+          <div className="subscribe-glow" aria-hidden />
+          <div className="subscribe-noise pitch-noise" aria-hidden />
+          <div className="pitch-art" key={step}>
+            <PitchArt step={step} copy={art} />
+          </div>
+        </aside>
 
-        <button type="button" className="modal-close" onClick={onClose} aria-label={close}>
-          <svg viewBox="0 0 20 20" aria-hidden>
-            <path d="M5 5l10 10M15 5L5 15" />
-          </svg>
-        </button>
+        <div className="pitch-panel">
+          <button type="button" className="modal-close" onClick={onClose} aria-label={close}>
+            <svg viewBox="0 0 20 20" aria-hidden>
+              <path d="M5 5l10 10M15 5L5 15" />
+            </svg>
+          </button>
 
-        <div className="pitch-inner">
           <div className="pitch-brand">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/iconinfluence.png" alt="" />
@@ -80,7 +99,7 @@ export default function PitchModal({
 
             <button
               className="btn pitch-action"
-              onClick={() => (last ? onStart() : setStep((s) => s + 1))}
+              onClick={() => (last ? handover() : setStep((s) => s + 1))}
             >
               {last ? start : next}
             </button>
