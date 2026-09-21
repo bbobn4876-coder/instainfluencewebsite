@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 /**
  * The one block that invites someone to subscribe. It carries the same
  * drifting gradient and noise as the configurator, so the landing page, the
@@ -32,9 +34,9 @@ export default function SubscribeCallout({
             {action}
           </button>
         ) : (
-          <a className="btn callout-action" href="/subscribe">
+          <Link className="btn callout-action" href="/subscribe">
             {action}
-          </a>
+          </Link>
         )}
       </div>
     </div>

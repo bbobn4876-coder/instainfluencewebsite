@@ -10,6 +10,8 @@ import { useFilterTransition } from "./useFilterTransition";
 import { CURRENCY_OF, formatPrice, priceOf, type SubscriptionConfig } from "@/lib/plans";
 import AdminUserModal, { type AdminStats } from "./AdminUserModal";
 import SubscribeCallout from "./SubscribeCallout";
+import Link from "next/link";
+import { session } from "./sessionCache";
 import ProfileModal from "./ProfileModal";
 import AuthModal, { type AuthMode } from "./AuthModal";
 import Landing from "./Landing";
@@ -170,11 +172,13 @@ export default function Page() {
   const [imapPassword, setImapPassword] = useState("");
 
   const [details, setDetails] = useState<Influencer | null>(null);
-  const [user, setUser] = useState<{ id: string; email: string; isAdmin?: boolean } | null>(null);
+  const [user, setUser] = useState<{ id: string; email: string; isAdmin?: boolean } | null>(
+    session.user,
+  );
   const [guide, setGuide] = useState(false);
   const [admin, setAdmin] = useState<AdminData | null>(null);
   const [adminLoading, setAdminLoading] = useState(false);
-  const [authResolved, setAuthResolved] = useState(false);
+  const [authResolved, setAuthResolved] = useState(session.known);
   const [adminDetails, setAdminDetails] = useState<AdminAccount | null>(null);
   const [grantBusy, setGrantBusy] = useState(false);
   const [subscription, setSubscription] = useState<{
@@ -182,7 +186,7 @@ export default function Page() {
     usedToday: number;
     unlimited: boolean;
     limits: { dailyProfiles: number; senders: number } | null;
-  } | null>(null);
+  } | null>(session.subscription);
   const [sourceCheck, setSourceCheck] = useState<
     { configured: boolean; probes: { name: string; ok: boolean; detail: string }[] } | null
   >(null);
@@ -210,9 +214,15 @@ export default function Page() {
     } catch {
       /* storage can be blocked; the default stays expanded */
     }
+    // Already answered earlier in this browsing context: nothing to wait for.
+    if (session.known) return;
+
     fetch("/api/auth")
       .then((r) => r.json())
-      .then((data) => setUser(data.user ?? null))
+      .then((data) => {
+        setUser(data.user ?? null);
+        session.setUser(data.user ?? null);
+      })
       .catch(() => undefined)
       .finally(() => setAuthResolved(true));
 
@@ -221,7 +231,10 @@ export default function Page() {
     fetch("/api/plan")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data) setSubscription(data);
+        if (data) {
+          setSubscription(data);
+          session.setSubscription(data);
+        }
       })
       .catch(() => undefined);
   }, []);
@@ -279,6 +292,7 @@ export default function Page() {
 
   const signOut = useCallback(async () => {
     await fetch("/api/auth", { method: "DELETE" });
+    session.clear();
     setUser(null);
     setSubscription(null);
     setInfluencers([]);
@@ -509,7 +523,11 @@ export default function Page() {
   const loadPlan = useCallback(async () => {
     try {
       const res = await fetch("/api/plan");
-      if (res.ok) setSubscription(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setSubscription(data);
+        session.setSubscription(data);
+      }
     } catch {
       /* the gate simply stays closed until it loads */
     }
@@ -907,13 +925,7 @@ export default function Page() {
   // Until the session check answers, neither view is the right one: showing
   // the landing meanwhile made a signed-in visitor watch it flash past on the
   // way back from the configurator.
-  if (!authResolved) {
-    return (
-      <div className="boot" role="status" aria-label="Loading">
-        <LogoLoader />
-      </div>
-    );
-  }
+  if (!authResolved) return <div className="boot" aria-hidden />;
 
   // Signed-out visitors only ever see the landing page; the app shell, its
   // sidebar and its pages exist for accounts.
@@ -933,6 +945,7 @@ export default function Page() {
             onClose={() => setAuthMode(null)}
             onDone={(signedIn) => {
               setUser(signedIn);
+            session.setUser(signedIn);
               setAuthMode(null);
               setNotice(null);
               setView("discover");
@@ -1500,9 +1513,9 @@ export default function Page() {
                     <p className="hint">{t.subscribe.sub}</p>
                   )}
                   {subscription?.unlimited ? null : (
-                    <a className="btn btn-ghost settings-plan-link" href="/subscribe">
+                    <Link className="btn btn-ghost settings-plan-link" href="/subscribe">
                       {subscription?.config ? t.plan.update : t.subscribe.manage}
-                    </a>
+                    </Link>
                   )}
                 </section>
                 )}
@@ -1991,6 +2004,7 @@ export default function Page() {
           onClose={() => setAuthMode(null)}
           onDone={(signedIn) => {
             setUser(signedIn);
+            session.setUser(signedIn);
             setAuthMode(null);
             setNotice(null);
             setView("discover");

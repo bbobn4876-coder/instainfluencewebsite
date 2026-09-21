@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   CURRENCY_OF,
   DEFAULT_CONFIG,
@@ -19,6 +20,7 @@ import {
   type VolumeId,
 } from "@/lib/plans";
 import { dict, type Language } from "@/lib/i18n";
+import { session } from "../sessionCache";
 
 /** Matches the exit transition in the stylesheet. */
 const LEAVE_MS = 260;
@@ -29,6 +31,7 @@ const LEAVE_MS = 260;
  * is always visible while choices are made.
  */
 export default function Subscribe() {
+  const router = useRouter();
   const [language, setLanguage] = useState<Language>("en");
   const [config, setConfig] = useState<SubscriptionConfig>(DEFAULT_CONFIG);
   const [saved, setSaved] = useState<SubscriptionConfig | null>(null);
@@ -44,12 +47,14 @@ export default function Subscribe() {
   }, []);
 
   /** Plays the exit before handing over, so the change of page is not a cut. */
-  const leaveTo = useCallback((href: string) => {
-    setTransition("out");
-    window.setTimeout(() => {
-      window.location.href = href;
-    }, LEAVE_MS);
-  }, []);
+  const leaveTo = useCallback(
+    (href: string) => {
+      setTransition("out");
+      // Client-side, so the app is not torn down and rebuilt on the way back.
+      window.setTimeout(() => router.push(href), LEAVE_MS);
+    },
+    [router],
+  );
 
   useEffect(() => {
     // Tells the app not to splash when this page hands control back.
@@ -103,7 +108,12 @@ export default function Subscribe() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ config }),
       });
-      if (res.ok) leaveTo("/");
+      // The app reads this back instead of asking again, so it has to be the
+      // answer we just got, not the one it cached before the change.
+      if (res.ok) {
+        session.setSubscription(await res.json());
+        leaveTo("/");
+      }
     } finally {
       setBusy(false);
     }
@@ -117,7 +127,10 @@ export default function Subscribe() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ config: null }),
       });
-      if (res.ok) leaveTo("/");
+      if (res.ok) {
+        session.setSubscription(await res.json());
+        leaveTo("/");
+      }
     } finally {
       setBusy(false);
     }
