@@ -754,8 +754,15 @@ textarea {
   letter-spacing: -0.01em;
 }
 
-.panel .hint {
+/* Tighten only the hint that sits right under a panel title: it is a flex
+   sibling there, so the pull-up just trims the gap. Applied to every hint it
+   dragged the ones in normal flow (inside Advanced) over the fields above. */
+.panel > .panel-title + .hint {
   margin: -6px 0 0;
+}
+
+.advanced > .hint {
+  margin: 12px 0 0;
 }
 
 .form-grid {

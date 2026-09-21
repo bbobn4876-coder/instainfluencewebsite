@@ -1701,6 +1701,18 @@ export default function Page() {
               <>
                 <button
                   className="mini-button"
+                  title={t.settings.help}
+                  aria-label={t.settings.help}
+                  onClick={() => setGuide(true)}
+                >
+                  <svg viewBox="0 0 20 20" aria-hidden>
+                    <circle cx="10" cy="10" r="7.25" />
+                    <path d="M7.9 7.9a2.1 2.1 0 1 1 2.6 2.6c-.4.2-.5.5-.5.9v.4" />
+                    <path d="M10 14.6v.1" />
+                  </svg>
+                </button>
+                <button
+                  className="mini-button"
                   title={t.settings.test}
                   aria-label={t.settings.test}
                   onClick={testEmail}
