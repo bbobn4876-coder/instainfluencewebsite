@@ -174,6 +174,7 @@ export default function Page() {
   const [guide, setGuide] = useState(false);
   const [admin, setAdmin] = useState<AdminData | null>(null);
   const [adminLoading, setAdminLoading] = useState(false);
+  const [authResolved, setAuthResolved] = useState(false);
   const [adminDetails, setAdminDetails] = useState<AdminAccount | null>(null);
   const [grantBusy, setGrantBusy] = useState(false);
   const [subscription, setSubscription] = useState<{
@@ -212,7 +213,8 @@ export default function Page() {
     fetch("/api/auth")
       .then((r) => r.json())
       .then((data) => setUser(data.user ?? null))
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => setAuthResolved(true));
   }, []);
 
   useEffect(() => {
@@ -511,6 +513,17 @@ export default function Page() {
     }
     void loadPlan();
   }, [user, loadPlan]);
+
+  useEffect(() => {
+    // Only once auth has actually answered — writing while it is still in
+    // flight would clear the flag the splash reads on the next load.
+    if (!authResolved) return;
+    try {
+      window.localStorage.setItem("signed-in", user ? "1" : "0");
+    } catch {
+      /* storage can be blocked; the splash then simply never plays */
+    }
+  }, [user, authResolved]);
 
   const grantPlan = useCallback(
     async (account: AdminAccount, config: SubscriptionConfig | null) => {

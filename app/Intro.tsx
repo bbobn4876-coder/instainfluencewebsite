@@ -3,13 +3,33 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
+/**
+ * Read once per page load, not once per effect: React runs effects twice in
+ * development, and a second pass would find the flag already consumed and
+ * play the splash anyway.
+ */
+let cameFromSubscribe: boolean | undefined;
+
+function arrivedFromSubscribe(): boolean {
+  if (cameFromSubscribe === undefined) {
+    try {
+      cameFromSubscribe = window.sessionStorage.getItem("from-subscribe") === "1";
+      if (cameFromSubscribe) window.sessionStorage.removeItem("from-subscribe");
+    } catch {
+      cameFromSubscribe = false;
+    }
+  }
+  return cameFromSubscribe;
+}
+
 const FADE_IN = 900;
 const HOLD = 700;
 const FADE_OUT = 900;
 
 /**
- * Logo splash on every page load: it fades in, holds, then dissolves into
- * the burgundy blur behind the app.
+ * Logo splash when the app opens: it fades in, holds, then dissolves into the
+ * burgundy blur behind it. Visitors who are not signed in go straight to the
+ * landing page instead — the splash is the app's own door, not the site's.
  */
 export default function Intro() {
   const [phase, setPhase] = useState<"hidden" | "in" | "out" | "done">("hidden");
@@ -23,10 +43,20 @@ export default function Intro() {
       return;
     }
     let motionOff = false;
+    let signedIn = false;
     try {
       motionOff = window.localStorage.getItem("motion") === "off";
+      // Written when auth resolves, so the choice is made before paint rather
+      // than after a round trip that would let the splash arrive late.
+      signedIn = window.localStorage.getItem("signed-in") === "1";
     } catch {
-      /* storage can be blocked; the intro plays */
+      /* storage can be blocked; the landing simply never splashes */
+    }
+    // Returning from the configurator is a navigation inside the product, not
+    // an entrance to it, so the splash stays out of the way.
+    if (!signedIn || arrivedFromSubscribe()) {
+      setPhase("done");
+      return;
     }
     if (motionOff || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setPhase("done");
@@ -42,7 +72,7 @@ export default function Intro() {
     };
   }, [skip]);
 
-  if (phase === "done") return null;
+  if (phase === "hidden" || phase === "done") return null;
 
   return (
     <div className="intro" data-phase={phase} aria-hidden>

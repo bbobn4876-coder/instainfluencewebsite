@@ -103,12 +103,6 @@ html[data-motion="off"]:has(.landing) {
   pointer-events: none;
 }
 
-/* Before the client decides whether to play, the overlay stays invisible —
-   otherwise a slow first load shows nothing but its opaque background. */
-.intro[data-phase="hidden"] {
-  opacity: 0;
-}
-
 .intro[data-phase="out"] {
   opacity: 0;
   transition: opacity 900ms ease;

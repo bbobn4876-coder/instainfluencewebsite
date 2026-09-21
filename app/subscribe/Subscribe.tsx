@@ -34,6 +34,13 @@ export default function Subscribe() {
   const t = dict(language).plan;
 
   useEffect(() => {
+    // Tells the app not to splash when this page hands control back.
+    try {
+      window.sessionStorage.setItem("from-subscribe", "1");
+    } catch {
+      /* storage can be blocked; the splash then plays as usual */
+    }
+
     // The account's language, so the page opens in the same one as the app.
     fetch("/api/settings")
       .then((r) => (r.ok ? r.json() : null))
