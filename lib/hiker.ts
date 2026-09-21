@@ -42,15 +42,21 @@ async function get(path: string, params: Record<string, string | undefined>): Pr
     signal: AbortSignal.timeout(8_000),
   });
   if (!res.ok) {
+    // Always carry the server's own wording: a guessed explanation of a status
+    // code sends you looking in the wrong place.
     const body = (await res.text()).slice(0, 200);
+    const said = body ? ` Server said: ${body}` : "";
     if (res.status === 401 || res.status === 403) {
-      throw new Error("HikerAPI refused the token. Check HIKER_TOKEN.");
+      throw new Error(`HikerAPI refused the token (${res.status}). Check HIKER_TOKEN.${said}`);
     }
     if (res.status === 402) {
-      throw new Error("The HikerAPI balance is empty. Top it up to keep searching.");
+      throw new Error(
+        "HikerAPI has no balance left to draw on. It is prepaid: top the account up " +
+          `in the dashboard and the search will run again.${said}`,
+      );
     }
     if (res.status === 429) {
-      throw new Error("HikerAPI is rate-limiting this token. Wait a moment and retry.");
+      throw new Error(`HikerAPI is rate-limiting this token. Wait a moment and retry.${said}`);
     }
     throw new Error(`HikerAPI ${res.status}: ${body}`);
   }
