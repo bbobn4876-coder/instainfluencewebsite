@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { emailConfigured, runOutreach } from "@/lib/outreach";
 import { requireUser } from "@/lib/session";
+import { allowance } from "@/lib/subscription";
 import type { Influencer } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,14 @@ const MAX_RECIPIENTS = 200;
 export async function GET() {
   const { user, response } = await requireUser();
   if (!user) return response;
+
+  const quota = await allowance(user.id);
+  if (!quota.plan) {
+    return NextResponse.json(
+      { error: "Pick a plan to use this.", reason: "no-plan" },
+      { status: 402 },
+    );
+  }
   return NextResponse.json({ emailConfigured: await emailConfigured(user.id) });
 }
 

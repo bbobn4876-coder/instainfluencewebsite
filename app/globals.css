@@ -2890,3 +2890,156 @@ textarea {
     opacity: 0;
   }
 }
+
+/* ---------- plans ---------- */
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+
+.plan-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.plan-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(154, 34, 70, 0.55);
+}
+
+.plan-card[data-featured="true"] {
+  border-color: rgba(154, 34, 70, 0.75);
+  background: linear-gradient(180deg, rgba(109, 19, 48, 0.24), rgba(16, 10, 13, 0.5));
+}
+
+.plan-card[data-active="true"] {
+  border-color: #9a2246;
+  box-shadow: 0 0 0 1px rgba(154, 34, 70, 0.4);
+}
+
+.plan-tag {
+  align-self: flex-start;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.plan-card[data-featured="true"] .plan-tag {
+  border-color: rgba(154, 34, 70, 0.6);
+  color: #e9c7d3;
+}
+
+.plan-name {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.plan-price {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 0;
+}
+
+.plan-price span {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.plan-price small {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.plan-features {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 4px 0 auto;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.plan-features li {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.plan-dot {
+  flex: 0 0 auto;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #9c2347;
+  transform: translateY(-2px);
+}
+
+.plan-card .btn {
+  margin-top: 4px;
+  justify-content: center;
+  text-align: center;
+}
+
+.landing-pricing-sub {
+  max-width: 620px;
+  margin: -6px 0 22px;
+}
+
+.subscribe-gate {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.subscribe-gate .plan-grid {
+  margin-top: 18px;
+}
+
+/* Inside a panel the three plans still sit on one row. */
+.panel .plan-grid {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.panel .plan-card {
+  padding: 18px 16px;
+}
+
+.panel .plan-price span {
+  font-size: 24px;
+}
+
+.quota-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+
+.quota-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #6d1330, #9c2347);
+  transition: width 0.4s ease;
+}

@@ -7,6 +7,8 @@ import { MAIL_PROVIDERS, guessProvider, providerById } from "@/lib/mailProviders
 import Select from "./Select";
 import LogoLoader from "./LogoLoader";
 import { useFilterTransition } from "./useFilterTransition";
+import PlanCards from "./PlanCards";
+import type { PlanId } from "@/lib/plans";
 import ProfileModal from "./ProfileModal";
 import AuthModal, { type AuthMode } from "./AuthModal";
 import Landing from "./Landing";
@@ -82,6 +84,8 @@ const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
 ];
 
 type AdminAccount = {
+  plan?: string | null;
+  usedToday?: number;
   id: string;
   email: string;
   createdAt: string;
@@ -166,6 +170,12 @@ export default function Page() {
   const [guide, setGuide] = useState(false);
   const [admin, setAdmin] = useState<AdminData | null>(null);
   const [adminLoading, setAdminLoading] = useState(false);
+  const [subscription, setSubscription] = useState<{
+    plan: PlanId | null;
+    usedToday: number;
+    limits: { dailyProfiles: number; senders: number } | null;
+  } | null>(null);
+  const [planBusy, setPlanBusy] = useState(false);
   const [sourceCheck, setSourceCheck] = useState<
     { configured: boolean; probes: { name: string; ok: boolean; detail: string }[] } | null
   >(null);
@@ -253,6 +263,7 @@ export default function Page() {
   const signOut = useCallback(async () => {
     await fetch("/api/auth", { method: "DELETE" });
     setUser(null);
+    setSubscription(null);
     setInfluencers([]);
     setSelectedIds([]);
     setResults([]);
@@ -477,6 +488,40 @@ export default function Page() {
       setCheckingSource(false);
     }
   }, []);
+
+  const loadPlan = useCallback(async () => {
+    try {
+      const res = await fetch("/api/plan");
+      if (res.ok) setSubscription(await res.json());
+    } catch {
+      /* the gate simply stays closed until it loads */
+    }
+  }, []);
+
+  const choosePlan = useCallback(
+    async (plan: PlanId) => {
+      setPlanBusy(true);
+      try {
+        const res = await fetch("/api/plan", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ plan }),
+        });
+        if (res.ok) setSubscription(await res.json());
+      } finally {
+        setPlanBusy(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!user) {
+      setSubscription(null);
+      return;
+    }
+    void loadPlan();
+  }, [user, loadPlan]);
 
   const loadAdmin = useCallback(async () => {
     setAdminLoading(true);
@@ -711,6 +756,9 @@ export default function Page() {
       (resultStatus === "all" || r.status === resultStatus),
   );
 
+  // Until a plan is picked the only working view is Settings, so the search
+  // and outreach docks have nothing to act on.
+  const gated = Boolean(user && subscription && !subscription.plan);
   const foldableDock = view === "discover" || view === "settings";
 
   const onContentScroll = (event: React.UIEvent<HTMLDivElement>) => {
@@ -921,7 +969,15 @@ export default function Page() {
         <div className="content" key={view} onScroll={onContentScroll}>
           {notice ? <div className="notice">{notice}</div> : null}
 
-          {view === "discover" ? (
+          {user && subscription && !subscription.plan && view !== "settings" ? (
+            <section className="subscribe-gate">
+              <h1 className="view-title">{t.subscribe.title}</h1>
+              <p className="view-sub">{t.subscribe.sub}</p>
+              <PlanCards copy={t.home} current={null} onChoose={choosePlan} busy={planBusy} />
+            </section>
+          ) : null}
+
+          {view === "discover" && (!subscription || subscription.plan) ? (
             <>
               <h1 className="view-title">{t.discover.title}</h1>
               <p className="view-sub">{t.discover.sub}</p>
@@ -972,7 +1028,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "compose" ? (
+          {view === "compose" && subscription?.plan ? (
             <>
               <h1 className="view-title">{t.compose.title}</h1>
               <p className="view-sub">
@@ -1025,7 +1081,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "results" ? (
+          {view === "results" && subscription?.plan ? (
             <>
               <h1 className="view-title">{t.results.title}</h1>
               <p className="view-sub">
@@ -1102,7 +1158,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "inbox" ? (
+          {view === "inbox" && subscription?.plan ? (
             <>
               <h1 className="view-title">{t.inbox.title}</h1>
               <p className="view-sub">{t.inbox.sub}</p>
@@ -1270,6 +1326,7 @@ export default function Page() {
                                 {new Date(account.createdAt).toLocaleDateString(
                                   language === "ru" ? "ru-RU" : "en-GB",
                                 )}
+                                {account.plan ? ` · ${account.plan}` : ""}
                                 {account.smtpFrom ? ` · ${account.smtpFrom}` : ""}
                                 {account.instagram ? ` · ${account.instagram}` : ""}
                               </div>
@@ -1321,6 +1378,42 @@ export default function Page() {
               <h1 className="view-title">{t.settings.title}</h1>
               <p className="view-sub">{t.settings.sub}</p>
               <div className="compose">
+                <section className="panel">
+                  <h2 className="panel-title">{t.subscribe.manage}</h2>
+                  {subscription?.plan && subscription.limits ? (
+                    <>
+                      <p className="hint">
+                        {t.subscribe.usage(
+                          subscription.usedToday,
+                          subscription.limits.dailyProfiles,
+                        )}{" "}
+                        · {t.subscribe.resets}
+                      </p>
+                      <div
+                        className="quota-bar"
+                        role="progressbar"
+                        aria-valuemin={0}
+                        aria-valuemax={subscription.limits.dailyProfiles}
+                        aria-valuenow={subscription.usedToday}
+                      >
+                        <span
+                          style={{
+                            width: `${Math.min(100, (subscription.usedToday / subscription.limits.dailyProfiles) * 100)}%`,
+                          }}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <p className="hint">{t.subscribe.sub}</p>
+                  )}
+                  <PlanCards
+                    copy={t.home}
+                    current={subscription?.plan ?? null}
+                    onChoose={choosePlan}
+                    busy={planBusy}
+                  />
+                </section>
+
                 <section className="panel">
                   <h2 className="panel-title">{t.settings.language}</h2>
                   <div className="toggles">
@@ -1556,7 +1649,7 @@ export default function Page() {
         </div>
 
         <div className="dock" data-compact={foldableDock && dockCompact}>
-          {view === "discover" ? (
+          {view === "discover" && !gated ? (
             <>
               <div className="dock-fields dock-search">{searchFields}
               </div>
@@ -1597,7 +1690,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "compose" ? (
+          {view === "compose" && subscription?.plan ? (
             <>
               <div className="dock-fields" style={{ gridTemplateColumns: "1fr" }}>
                 <span className="dock-status">
@@ -1648,7 +1741,7 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "inbox" ? (
+          {view === "inbox" && subscription?.plan ? (
             <>
               <div className="dock-fields" style={{ gridTemplateColumns: "1fr" }}>
                 <span className="dock-status">{t.inbox.count(visibleInbox.length)}</span>
@@ -1683,19 +1776,19 @@ export default function Page() {
             </>
           ) : null}
 
-          {view === "results" ? (
+          {view === "results" && subscription?.plan ? (
             <div className="dock-fields" style={{ gridTemplateColumns: "1fr" }}>
               <span className="dock-status">{t.results.title}</span>
             </div>
           ) : null}
         </div>
-        {foldableDock && view === "discover" ? (
+        {foldableDock && view === "discover" && !gated ? (
           <div className="mini-panel" data-open={miniFilters && (dockCompact || isNarrow)}>
             {searchFields}
           </div>
         ) : null}
 
-        {foldableDock ? (
+        {foldableDock && !(gated && view === "discover") ? (
           <div className="dock-mini" data-open={dockCompact} aria-hidden={!dockCompact}>
           {view === "settings" ? (
               <>

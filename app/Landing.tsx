@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import PlanCards from "./PlanCards";
 import { dict, type Language } from "@/lib/i18n";
 
 /**
@@ -42,6 +43,7 @@ export default function Landing({
         <nav className="landing-nav">
           <a href="#features">{t.navFeatures}</a>
           <a href="#how">{t.navHow}</a>
+          <a href="#pricing">{t.navPricing}</a>
           <a href="#faq">{t.navFaq}</a>
         </nav>
 
@@ -103,6 +105,13 @@ export default function Landing({
               </li>
             ))}
           </ol>
+        </section>
+
+        <section className="landing-section" id="pricing">
+          <h2 className="home-section">{t.pricingTitle}</h2>
+          <p className="home-feature-body landing-pricing-sub">{t.pricingSub}</p>
+          {/* Choosing a plan while signed out starts the sign-up. */}
+          <PlanCards copy={t} onChoose={onSignUp} />
         </section>
 
         <section className="landing-section" id="faq">

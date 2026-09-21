@@ -26,7 +26,7 @@ function getPool(): Pool {
   return pool;
 }
 
-/** Creates the two tables on first use; safe to run on every cold start. */
+/** Creates the tables on first use; safe to run on every cold start. */
 async function migrate(): Promise<void> {
   await getPool().query(`
     CREATE TABLE IF NOT EXISTS users (
@@ -39,6 +39,13 @@ async function migrate(): Promise<void> {
     CREATE TABLE IF NOT EXISTS settings (
       user_id text PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       data    jsonb NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      user_id    text PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      plan       text,
+      started_at timestamptz,
+      day        text,
+      used       integer NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS app_meta (
       key   text PRIMARY KEY,

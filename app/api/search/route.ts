@@ -4,13 +4,35 @@ import type { CrawlStats } from "@/lib/crawl";
 import { stepHikerCrawl } from "@/lib/hikerCrawl";
 import { ALL, countryByCode } from "@/lib/countries";
 import { requireUser } from "@/lib/session";
+import { allowance, recordUsage } from "@/lib/subscription";
 import type { SearchQuery } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+const quotaSpent = (limit: number) =>
+  `Stopped at today's allowance of ${limit.toLocaleString("en-US")} profiles. It resets at midnight UTC.`;
+
 export async function POST(request: Request) {
   const { user, response } = await requireUser();
   if (!user) return response;
+
+  // Parsing is what a plan pays for, so it is the one gate that matters.
+  const quota = await allowance(user.id);
+  if (!quota.plan) {
+    return NextResponse.json(
+      { error: "Pick a plan to start parsing.", reason: "no-plan" },
+      { status: 402 },
+    );
+  }
+  if (quota.remaining <= 0) {
+    return NextResponse.json(
+      {
+        error: `Today's allowance of ${quota.plan.dailyProfiles.toLocaleString("en-US")} profiles is used up. It resets at midnight UTC.`,
+        reason: "quota",
+      },
+      { status: 429 },
+    );
+  }
 
   let payload: Partial<SearchQuery> & {
     runId?: string;
@@ -65,7 +87,8 @@ export async function POST(request: Request) {
           }
         : null;
     try {
-      const state = await stepHikerCrawl(run, query);
+      // A round never reads more profiles than the plan still allows.
+      const state = await stepHikerCrawl(run, query, quota.remaining);
       if (state.status === "failed") {
         // Mid-crawl the client already holds real results; sample data would
         // mix into them, so only the very first round falls back to it.
@@ -81,14 +104,18 @@ export async function POST(request: Request) {
         return NextResponse.json({ ...fallback, status: "done", notice: state.detail });
       }
       if (state.status === "running") {
+        const remaining = await recordUsage(user.id, state.read ?? 0);
         return NextResponse.json({
           provider: "hiker",
-          status: "running",
+          status: remaining > 0 ? "running" : "done",
           ...state.run,
           influencers: state.influencers ?? [],
           scanned: state.scanned,
+          remaining,
+          notice: remaining > 0 ? undefined : quotaSpent(quota.plan.dailyProfiles),
         });
       }
+      const remaining = await recordUsage(user.id, state.read ?? 0);
       return NextResponse.json({
         provider: "hiker",
         status: "done",
@@ -97,6 +124,7 @@ export async function POST(request: Request) {
         matched: state.matched,
         confirmed: state.confirmed,
         stats: state.stats,
+        remaining,
       });
     } catch (error) {
       if (run) {

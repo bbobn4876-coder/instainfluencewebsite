@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { fileName, toWorkbook } from "@/lib/exportTable";
 import { requireUser } from "@/lib/session";
+import { allowance } from "@/lib/subscription";
 import type { Influencer } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,14 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   const { user, response } = await requireUser();
   if (!user) return response;
+
+  const quota = await allowance(user.id);
+  if (!quota.plan) {
+    return NextResponse.json(
+      { error: "Pick a plan to use this.", reason: "no-plan" },
+      { status: 402 },
+    );
+  }
 
   const payload = (await request.json().catch(() => ({}))) as { influencers?: Influencer[] };
   const influencers = Array.isArray(payload.influencers) ? payload.influencers : [];

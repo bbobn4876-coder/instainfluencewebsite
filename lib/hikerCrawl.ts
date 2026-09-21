@@ -32,7 +32,14 @@ export type HikerRun = {
 };
 
 export type HikerStatus =
-  | { status: "running"; run: HikerRun; scanned: number; influencers?: Influencer[] }
+  | {
+      status: "running";
+      run: HikerRun;
+      scanned: number;
+      influencers?: Influencer[];
+      /** Profiles read this round, charged against the daily allowance. */
+      read?: number;
+    }
   | {
       status: "done";
       influencers: Influencer[];
@@ -40,6 +47,7 @@ export type HikerStatus =
       matched: number;
       confirmed: number;
       stats: CrawlStats;
+      read?: number;
     }
   | { status: "failed"; detail: string };
 
@@ -183,10 +191,16 @@ async function discover(query: SearchQuery): Promise<HikerStatus> {
 }
 
 /** Stage two: read a batch of profiles, then snowball from the ones that fit. */
-async function details(run: HikerRun, query: SearchQuery): Promise<HikerStatus> {
+async function details(
+  run: HikerRun,
+  query: SearchQuery,
+  budget: number,
+): Promise<HikerStatus> {
   const seen = [...(run.seen ?? [])];
   const cursor = run.cursor ?? 0;
-  const batch = seen.slice(cursor, cursor + PROFILE_BATCH);
+  // Never read more profiles than the plan still allows today.
+  const size = Math.max(0, Math.min(PROFILE_BATCH, budget));
+  const batch = seen.slice(cursor, cursor + size);
   const hints = { ...(run.geo ?? {}) };
   const wanted = query.countries.includes(ALL) ? [] : query.countries;
 
@@ -243,6 +257,7 @@ async function details(run: HikerRun, query: SearchQuery): Promise<HikerStatus> 
       run: { stage: "details", seen, cursor: nextCursor, geo: hints, stats },
       influencers: matched,
       scanned: stats.profiles,
+      read: fetched.length,
     };
   }
   return {
@@ -252,6 +267,7 @@ async function details(run: HikerRun, query: SearchQuery): Promise<HikerStatus> 
     matched: stats.inBand,
     confirmed: matched.filter((i) => i.city).length,
     stats,
+    read: fetched.length,
   };
 }
 
@@ -259,7 +275,8 @@ async function details(run: HikerRun, query: SearchQuery): Promise<HikerStatus> 
 export async function stepHikerCrawl(
   run: HikerRun | null,
   query: SearchQuery,
+  budget: number,
 ): Promise<HikerStatus> {
   if (!run || run.stage === "discover") return discover(query);
-  return details(run, query);
+  return details(run, query, budget);
 }

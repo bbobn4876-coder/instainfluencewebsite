@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { deleteUser, listUsers } from "@/lib/auth";
 import { deleteSettings, readSettings } from "@/lib/settings";
+import { deleteSubscription, getSubscription } from "@/lib/subscription";
 import { requireAdmin } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -14,8 +15,11 @@ export async function GET() {
   const accounts = await Promise.all(
     users.map(async (account) => {
       const settings = await readSettings(account.id);
+      const subscription = await getSubscription(account.id);
       return {
         ...account,
+        plan: subscription.plan,
+        usedToday: subscription.usedToday,
         language: settings.language,
         smtp: Boolean(settings.email.host && settings.email.user && settings.email.pass),
         smtpFrom: settings.email.from || settings.email.user,
@@ -53,5 +57,6 @@ export async function DELETE(request: Request) {
   const removed = await deleteUser(userId);
   if (!removed) return NextResponse.json({ error: "Account not found." }, { status: 404 });
   await deleteSettings(userId);
+  await deleteSubscription(userId);
   return NextResponse.json({ ok: true });
 }
