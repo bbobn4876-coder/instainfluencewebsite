@@ -215,6 +215,15 @@ export default function Page() {
       .then((data) => setUser(data.user ?? null))
       .catch(() => undefined)
       .finally(() => setAuthResolved(true));
+
+    // Started alongside the session check rather than after it. It answers
+    // 401 for a visitor with no session, which simply leaves it unset.
+    fetch("/api/plan")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) setSubscription(data);
+      })
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -511,7 +520,11 @@ export default function Page() {
       setSubscription(null);
       return;
     }
+    // The first load already asked alongside the session check.
+    if (subscription) return;
     void loadPlan();
+    // Re-running on every subscription change would refetch after each edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, loadPlan]);
 
   useEffect(() => {
@@ -894,7 +907,13 @@ export default function Page() {
   // Until the session check answers, neither view is the right one: showing
   // the landing meanwhile made a signed-in visitor watch it flash past on the
   // way back from the configurator.
-  if (!authResolved) return <div className="boot" aria-hidden />;
+  if (!authResolved) {
+    return (
+      <div className="boot" role="status" aria-label="Loading">
+        <LogoLoader />
+      </div>
+    );
+  }
 
   // Signed-out visitors only ever see the landing page; the app shell, its
   // sidebar and its pages exist for accounts.

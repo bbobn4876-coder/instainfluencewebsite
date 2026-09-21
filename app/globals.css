@@ -3557,11 +3557,26 @@ textarea {
   }
 }
 
-/* Held while the session check answers: the page background, nothing else. */
+/* Held while the session check answers. It carries the mark rather than a
+   bare background: a blank screen reads as broken, however briefly. */
 .boot {
   position: fixed;
   inset: 0;
+  display: grid;
+  place-items: center;
   background: var(--bg);
+  animation: boot-in 0.5s ease both;
+}
+
+/* Nothing shows for the first moments, so a fast answer stays seamless. */
+@keyframes boot-in {
+  0%,
+  45% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 /* The configurator arrives and leaves rather than cutting in and out. */
