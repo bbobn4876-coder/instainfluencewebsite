@@ -96,6 +96,7 @@ type AdminAccount = {
 type AdminData = {
   accounts: AdminAccount[];
   integrations: {
+    hiker: boolean;
     apify: boolean;
     apifyActor: string;
     instagramGraph: boolean;
@@ -164,6 +165,10 @@ export default function Page() {
   const [guide, setGuide] = useState(false);
   const [admin, setAdmin] = useState<AdminData | null>(null);
   const [adminLoading, setAdminLoading] = useState(false);
+  const [sourceCheck, setSourceCheck] = useState<
+    { configured: boolean; probes: { name: string; ok: boolean; detail: string }[] } | null
+  >(null);
+  const [checkingSource, setCheckingSource] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode | null>(null);
 
   const [collapsed, setCollapsed] = useState(false);
@@ -456,6 +461,21 @@ export default function Page() {
   useEffect(() => {
     if (user && view === "inbox" && !inboxLoaded && !inboxLoading) void loadInbox();
   }, [user, view, inboxLoaded, inboxLoading, loadInbox]);
+
+  const checkSource = useCallback(async () => {
+    setCheckingSource(true);
+    try {
+      const res = await fetch("/api/admin/source", { method: "POST" });
+      setSourceCheck(await res.json());
+    } catch (error) {
+      setSourceCheck({
+        configured: true,
+        probes: [{ name: "request", ok: false, detail: (error as Error).message }],
+      });
+    } finally {
+      setCheckingSource(false);
+    }
+  }, []);
 
   const loadAdmin = useCallback(async () => {
     setAdminLoading(true);
@@ -1157,6 +1177,12 @@ export default function Page() {
                     <h2 className="panel-title">{t.admin.serverTitle}</h2>
                     <div className="admin-grid">
                       <div className="admin-stat">
+                        <span className="admin-stat-label">{t.admin.hiker}</span>
+                        <span className="status" data-status={admin.integrations.hiker ? "sent" : "drafted"}>
+                          {admin.integrations.hiker ? t.admin.on : t.admin.off}
+                        </span>
+                      </div>
+                      <div className="admin-stat">
                         <span className="admin-stat-label">{t.admin.apify}</span>
                         <span className="status" data-status={admin.integrations.apify ? "sent" : "drafted"}>
                           {admin.integrations.apify ? t.admin.on : t.admin.off}
@@ -1192,6 +1218,27 @@ export default function Page() {
                         <span className="admin-stat-label">{t.admin.node}</span>
                         <span className="admin-stat-value">{admin.integrations.node}</span>
                       </div>
+                    </div>
+
+                    <div className="source-check">
+                      <button className="btn btn-ghost btn-sm" onClick={checkSource} disabled={checkingSource}>
+                        {checkingSource ? t.admin.checking : t.admin.checkSource}
+                      </button>
+                      {sourceCheck ? (
+                        sourceCheck.configured ? (
+                          <ul className="probe-list">
+                            {sourceCheck.probes.map((probe) => (
+                              <li className="probe" key={probe.name} data-ok={probe.ok}>
+                                <i className="status-dot" aria-hidden />
+                                <span className="probe-name">{probe.name}</span>
+                                <span className="probe-detail">{probe.detail}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="hint">{t.admin.noSource}</p>
+                        )
+                      ) : null}
                     </div>
                   </section>
 

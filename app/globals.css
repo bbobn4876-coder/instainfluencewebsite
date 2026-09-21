@@ -2792,3 +2792,67 @@ textarea {
 [data-motion="off"] .logo-bar {
   animation: none;
 }
+
+/* Live check of the data source, run from the admin panel. */
+.source-check {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 18px;
+}
+
+.probe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.probe {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 13px;
+}
+
+.probe .status-dot {
+  align-self: center;
+  background: #c2506d;
+}
+
+.probe[data-ok="true"] .status-dot {
+  background: #9c2347;
+  box-shadow: 0 0 0 3px rgba(156, 35, 71, 0.22);
+}
+
+.probe[data-ok="false"] {
+  border-color: rgba(194, 80, 109, 0.45);
+}
+
+.probe-name {
+  min-width: 140px;
+  font-weight: 500;
+}
+
+.probe-detail {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .probe {
+    flex-wrap: wrap;
+  }
+
+  .probe-name {
+    min-width: 0;
+  }
+}

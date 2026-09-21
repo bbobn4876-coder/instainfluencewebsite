@@ -29,6 +29,7 @@ export async function GET() {
   return NextResponse.json({
     accounts,
     integrations: {
+      hiker: Boolean(process.env.HIKER_TOKEN),
       apify: Boolean(process.env.APIFY_TOKEN),
       apifyActor: process.env.APIFY_ACTOR_ID ?? "apify~instagram-scraper",
       instagramGraph: Boolean(process.env.IG_ACCESS_TOKEN && process.env.IG_BUSINESS_ACCOUNT_ID),
