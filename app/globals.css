@@ -4385,3 +4385,121 @@ textarea {
   }
 }
 
+
+/* ---------- leads ---------- */
+
+.lead-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.lead-source {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.lead-source b {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.lead-source small {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.lead-source[aria-pressed="true"] {
+  border-color: #9a2246;
+  background: linear-gradient(180deg, rgba(109, 19, 48, 0.28), rgba(16, 10, 13, 0.4));
+}
+
+.lead-source[data-blocked="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.lead-card {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.lead-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lead-head b {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.lead-head small {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* The score earns its colour only when the lead is actually hot. */
+.lead-priority {
+  flex: 0 0 auto;
+  min-width: 34px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--muted);
+}
+
+.lead-priority[data-hot="true"] {
+  border-color: rgba(154, 34, 70, 0.75);
+  background: rgba(109, 19, 48, 0.35);
+  color: #f0d6de;
+}
+
+.lead-context {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.lead-signal[data-signal="asking"] {
+  border-color: rgba(154, 34, 70, 0.7);
+  background: rgba(109, 19, 48, 0.3);
+  color: #edd3dc;
+}
+
+.dock-leads {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 720px) {
+  .dock-leads {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

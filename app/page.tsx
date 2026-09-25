@@ -12,6 +12,12 @@ import AdminUserModal, { type AdminStats } from "./AdminUserModal";
 import SubscribeCallout from "./SubscribeCallout";
 import Link from "next/link";
 import { session } from "./sessionCache";
+import {
+  LEAD_CATEGORIES,
+  LEAD_SOURCES,
+  type Lead,
+  type LeadSource,
+} from "@/lib/leads";
 import Welcome from "./Welcome";
 import PitchModal from "./PitchModal";
 import ProfileModal from "./ProfileModal";
@@ -25,7 +31,7 @@ import type { PublicSettings } from "@/lib/settings";
 import type { InboxChannel, InboxMessage, ChannelStatus } from "@/lib/inbox";
 import type { Influencer, OutreachResult } from "@/lib/types";
 
-type View = "discover" | "compose" | "results" | "inbox" | "settings" | "admin";
+type View = "discover" | "leads" | "compose" | "results" | "inbox" | "settings" | "admin";
 
 const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
   {
@@ -39,8 +45,18 @@ const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
     ),
   },
   {
-    id: "compose",
+    id: "leads",
     hotkey: "2",
+    icon: (
+      <svg viewBox="0 0 20 20" aria-hidden>
+        <path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h8" />
+        <circle cx="15.5" cy="14.5" r="2" />
+      </svg>
+    ),
+  },
+  {
+    id: "compose",
+    hotkey: "3",
     icon: (
       <svg viewBox="0 0 20 20" aria-hidden>
         <path d="M13.5 3.5l3 3-9 9H4.5v-3z" />
@@ -49,7 +65,7 @@ const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
   },
   {
     id: "results",
-    hotkey: "3",
+    hotkey: "4",
     icon: (
       <svg viewBox="0 0 20 20" aria-hidden>
         <path d="M4 16V9M10 16V4M16 16v-5" />
@@ -58,7 +74,7 @@ const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
   },
   {
     id: "inbox",
-    hotkey: "4",
+    hotkey: "5",
     icon: (
       <svg viewBox="0 0 20 20" aria-hidden>
         <path d="M2.8 5.5h14.4v9H2.8z" />
@@ -78,7 +94,7 @@ const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
   },
   {
     id: "settings",
-    hotkey: "5",
+    hotkey: "6",
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden>
         <circle cx="12" cy="12" r="3.1" />
@@ -192,6 +208,16 @@ export default function Page() {
   const [guide, setGuide] = useState(false);
   const [admin, setAdmin] = useState<AdminData | null>(null);
   const [adminLoading, setAdminLoading] = useState(false);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [leadModules, setLeadModules] = useState<
+    { id: LeadSource; unavailable: string | null; configured: boolean; envKey: string | null }[]
+  >([]);
+  const [leadSources, setLeadSources] = useState<LeadSource[]>(["vk", "telegram", "maps", "instagram"]);
+  const [leadCity, setLeadCity] = useState("Санкт-Петербург");
+  const [leadCategory, setLeadCategory] = useState(LEAD_CATEGORIES[0]);
+  const [leadKeywords, setLeadKeywords] = useState("нужен смм, ищу видеографа, продвижение");
+  const [leadsLoading, setLeadsLoading] = useState(false);
+  const [leadNotes, setLeadNotes] = useState<string[]>([]);
   const [authResolved, setAuthResolved] = useState(session.known);
   const [welcoming, setWelcoming] = useState(false);
   const [pitching, setPitching] = useState(false);
@@ -629,6 +655,46 @@ export default function Page() {
     [t],
   );
 
+  useEffect(() => {
+    if (!user) return;
+    fetch("/api/leads")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.modules) setLeadModules(data.modules);
+      })
+      .catch(() => undefined);
+  }, [user]);
+
+  const findLeads = useCallback(async () => {
+    setLeadsLoading(true);
+    setNotice(null);
+    setLeadNotes([]);
+    try {
+      const res = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          sources: leadSources,
+          city: leadCity,
+          categories: [leadCategory],
+          keywords: leadKeywords.split(",").map((word) => word.trim()).filter(Boolean),
+          limit: 60,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not search.");
+      setLeads(data.leads ?? []);
+      setLeadNotes(data.notes ?? []);
+      if ((data.skipped ?? []).length > 0) {
+        setNotice(t.leads.skipped((data.skipped as LeadSource[]).map((id) => t.leads.sourceNames[id]).join(", ")));
+      }
+    } catch (error) {
+      setNotice((error as Error).message);
+    } finally {
+      setLeadsLoading(false);
+    }
+  }, [leadSources, leadCity, leadCategory, leadKeywords, t]);
+
   const loadAdmin = useCallback(async () => {
     setAdminLoading(true);
     setNotice(null);
@@ -842,6 +908,7 @@ export default function Page() {
 
   const counts: Record<View, number | undefined> = {
     discover: influencers.length || undefined,
+    leads: leads.length || undefined,
     compose: undefined,
     results: results.length || undefined,
     inbox: inbox.filter((m) => m.unread).length || undefined,
@@ -1199,6 +1266,120 @@ export default function Page() {
                       onInfo={() => setDetails(influencer)}
                       labels={t.discover}
                     />
+                  ))}
+                </div>
+              )}
+            </>
+          ) : null}
+
+          {view === "leads" && appReady ? (
+            <>
+              <h1 className="view-title">{t.leads.title}</h1>
+              <p className="view-sub">{t.leads.sub}</p>
+
+              <div className="lead-sources">
+                {LEAD_SOURCES.map((id) => {
+                  const info = leadModules.find((module) => module.id === id);
+                  const blocked = Boolean(info?.unavailable);
+                  const on = leadSources.includes(id);
+                  return (
+                    <button
+                      className="lead-source"
+                      key={id}
+                      data-blocked={blocked}
+                      aria-pressed={on && !blocked}
+                      disabled={blocked}
+                      title={blocked ? t.leads.unavailableWhy : undefined}
+                      onClick={() =>
+                        setLeadSources((current) =>
+                          current.includes(id)
+                            ? current.filter((one) => one !== id)
+                            : [...current, id],
+                        )
+                      }
+                    >
+                      <b>{t.leads.sourceNames[id]}</b>
+                      <small>
+                        {blocked
+                          ? t.leads.unavailable
+                          : info?.configured
+                            ? "ok"
+                            : t.leads.needsKey(info?.envKey ?? "")}
+                      </small>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {leadNotes.includes("sample") ? (
+                <p className="hint">{t.leads.sampleNotice}</p>
+              ) : null}
+              {leadNotes
+                .filter((note) => note !== "sample")
+                .map((note) => (
+                  <p className="hint" key={note}>
+                    {note}
+                  </p>
+                ))}
+
+              {leads.length === 0 ? (
+                <div className="empty">
+                  {leadsLoading ? <LogoLoader label={t.leads.running} /> : t.leads.empty}
+                </div>
+              ) : (
+                <div className="grid">
+                  {leads.map((lead) => (
+                    <article className="lead-card" key={lead.id}>
+                      <header className="lead-head">
+                        <div>
+                          <b>{lead.name}</b>
+                          <small>
+                            {t.leads.sourceNames[lead.source]}
+                            {lead.city ? ` · ${lead.city}` : ""}
+                          </small>
+                        </div>
+                        <span className="lead-priority" data-hot={lead.priority >= 55}>
+                          {lead.priority}
+                        </span>
+                      </header>
+
+                      <p className="lead-context">{lead.context}</p>
+
+                      <div className="chips">
+                        {lead.signals.map((signal) => (
+                          <span className="chip lead-signal" key={signal} data-signal={signal}>
+                            {t.leads.signalNames[signal]}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="chips">
+                        {lead.emails.map((email) => (
+                          <a className="chip chip-mail" key={email} href={`mailto:${email}`}>
+                            {email}
+                          </a>
+                        ))}
+                        {lead.phones.map((phone) => (
+                          <a className="chip" key={phone} href={`tel:${phone.replace(/[^+\d]/g, "")}`}>
+                            {phone}
+                          </a>
+                        ))}
+                        {lead.links.map((link) => (
+                          <a
+                            className="chip"
+                            key={link.url}
+                            href={link.url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {link.platform}
+                          </a>
+                        ))}
+                        <a className="chip" href={lead.url} target="_blank" rel="noreferrer">
+                          {t.leads.open}
+                        </a>
+                      </div>
+                    </article>
                   ))}
                 </div>
               )}
@@ -2046,6 +2227,41 @@ export default function Page() {
                 </button>
                 <button className="btn" onClick={search} disabled={loading}>
                   {loading ? t.discover.parsing : t.discover.parse}
+                </button>
+              </div>
+            </>
+          ) : null}
+
+          {view === "leads" && appReady ? (
+            <>
+              <div className="dock-fields dock-leads">
+                <label className="field">
+                  {t.leads.city}
+                  <input value={leadCity} onChange={(e) => setLeadCity(e.target.value)} />
+                </label>
+                <label className="field">
+                  {t.leads.category}
+                  <Select
+                    value={[leadCategory]}
+                    options={LEAD_CATEGORIES.map((id) => ({ value: id, label: id }))}
+                    onChange={(picked) => setLeadCategory(picked[0] ?? LEAD_CATEGORIES[0])}
+                    searchPlaceholder={t.discover.searchPlaceholder}
+                    emptyLabel={t.discover.nothingFound}
+                  />
+                </label>
+                <label className="field" style={{ gridColumn: "span 2" }}>
+                  {t.leads.keywords}
+                  <input
+                    value={leadKeywords}
+                    placeholder={t.leads.keywordsHint}
+                    onChange={(e) => setLeadKeywords(e.target.value)}
+                  />
+                </label>
+              </div>
+              <div className="dock-actions">
+                <span className="dock-status">{t.leads.found(leads.length)}</span>
+                <button className="btn" onClick={findLeads} disabled={leadsLoading}>
+                  {leadsLoading ? t.leads.running : t.leads.run}
                 </button>
               </div>
             </>
