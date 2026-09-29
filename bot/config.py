@@ -45,6 +45,16 @@ DB_PATH = os.environ.get("LEADS_DB", str(Path(__file__).resolve().parent / "lead
 
 HTTP_TIMEOUT = float(os.environ.get("HTTP_TIMEOUT", "20"))
 
+# A corporate proxy, a VPN client or an antivirus that inspects HTTPS re-signs
+# every certificate with its own root. The browser already trusts that root;
+# Python keeps its own store and does not. Point this at the root's .pem file
+# and everything verifies again.
+CA_BUNDLE = os.environ.get("LEADS_CA_BUNDLE") or os.environ.get("SSL_CERT_FILE") or ""
+
+# Last resort: skip certificate checks entirely. Whatever sits in the middle can
+# then read the bot token and everything the bot fetches. Off unless asked for.
+INSECURE = os.environ.get("LEADS_INSECURE", "").strip().lower() in ("1", "true", "yes")
+
 
 def configured_sources() -> dict[str, bool]:
     """Which sources have their credential in place. Telegram needs none."""

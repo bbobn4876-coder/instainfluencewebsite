@@ -33,6 +33,34 @@ from sources import maps as maps_source
 from sources import telegram as tg_source
 from sources import vk as vk_source
 from storage import connect, forget_old, get_query, remember_message, save_query
+from web import TlsError, get_json
+
+TLS_HELP = """Между вами и Telegram что-то пересобирает HTTPS: антивирус с проверкой
+трафика (Kaspersky, ESET, Dr.Web), корпоративный прокси или VPN-клиент. Браузер
+его корневой сертификат уже знает, а у Python своё хранилище.
+
+Что делать — по порядку:
+
+1) macOS, свежий Python: запустите установщик сертификатов, он лежит рядом с
+   самим Python:
+      /Applications/Python\ 3.x/Install\ Certificates.command
+
+2) Поставьте актуальные корневые сертификаты:
+      python3 -m pip install --upgrade certifi
+   Бот подхватит их сам, ничего настраивать не нужно.
+
+3) Антивирус или рабочая сеть: экспортируйте их корневой сертификат в .pem и
+   укажите путь в bot/.env:
+      LEADS_CA_BUNDLE=/путь/к/corporate-root.pem
+   В Windows он обычно в «Сертификаты → Доверенные корневые», экспорт
+   «Base-64 encoded X.509 (.CER)», файл можно просто переименовать в .pem.
+
+4) Проще всего — выключить проверку HTTPS в антивирусе или запустить бота из
+   сети без такого прокси (мобильный интернет, домашний Wi-Fi).
+
+Совсем крайний случай — LEADS_INSECURE=1 в bot/.env. Проверка отключится, и
+тот, кто вклинился в соединение, сможет прочитать токен бота. Так можно
+убедиться, что дело именно в сертификате, но жить с этим не стоит."""
 
 HELP = """<b>Лиды</b>
 
@@ -298,7 +326,42 @@ def handle_message(db, message: dict) -> None:
     handle_command(db, chat["id"], text)
 
 
+def check() -> int:
+    """`--check`: says what the bot sees before it tries to do any work."""
+    import ssl
+
+    from config import CA_BUNDLE, INSECURE
+
+    print(f"Python:        {sys.version.split()[0]}")
+    print(f"Токен:         {'есть' if BOT_TOKEN else 'НЕТ — заполните bot/.env'}")
+    print(f"LEADS_CA_BUNDLE: {CA_BUNDLE or '—'}")
+    try:
+        import certifi
+
+        print(f"certifi:       {certifi.where()}")
+    except ImportError:
+        print(f"certifi:       не установлен, берутся системные "
+              f"({ssl.get_default_verify_paths().cafile or 'по умолчанию'})")
+    if INSECURE:
+        print("ПРОВЕРКА СЕРТИФИКАТОВ ОТКЛЮЧЕНА (LEADS_INSECURE=1)")
+    for name, url in (
+        ("api.telegram.org", "https://api.telegram.org"),
+        ("api.vk.com", "https://api.vk.com/method/utils.getServerTime"),
+    ):
+        try:
+            get_json(url)
+            print(f"{name}: доступен")
+        except TlsError as error:
+            print(f"{name}: сертификат не проверился — {error}")
+        except Exception as error:
+            print(f"{name}: {error}")
+    return 0
+
+
 def main() -> int:
+    if "--check" in sys.argv:
+        return check()
+
     if not BOT_TOKEN:
         print(
             "Нет токена. Создайте бота в @BotFather и положите токен в bot/.env:\n"
@@ -314,6 +377,10 @@ def main() -> int:
         # Polling and a webhook cannot both be active, so clear one if it is set.
         tg.delete_webhook()
         me = tg.get_me()
+    except TlsError as error:
+        print(f"Сертификат не прошёл проверку: {error}\n", file=sys.stderr)
+        print(TLS_HELP, file=sys.stderr)
+        return 1
     except Exception as error:
         print(f"Не удалось подключиться к Telegram: {error}", file=sys.stderr)
         print(
