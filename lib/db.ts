@@ -50,6 +50,16 @@ async function migrate(): Promise<void> {
     );
     ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS config jsonb;
     ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS totals jsonb NOT NULL DEFAULT '{}'::jsonb;
+    CREATE TABLE IF NOT EXISTS bot_chats (
+      chat_id    text PRIMARY KEY,
+      user_id    text REFERENCES users(id) ON DELETE CASCADE,
+      data       jsonb NOT NULL DEFAULT '{}'::jsonb
+    );
+    CREATE TABLE IF NOT EXISTS bot_link_codes (
+      code       text PRIMARY KEY,
+      user_id    text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at bigint NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS app_meta (
       key   text PRIMARY KEY,
       value text NOT NULL

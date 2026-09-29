@@ -4503,3 +4503,70 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* --- Telegram bot panel on the Leads page --------------------------------- */
+.lead-bot {
+  margin: 18px 0 22px;
+  display: grid;
+  gap: 8px;
+}
+.lead-bot-state {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+.lead-bot-state::before {
+  content: "●";
+  margin-right: 7px;
+  color: #2f8f5b;
+  font-size: 10px;
+  vertical-align: 1px;
+}
+.lead-bot-state[data-off="true"]::before,
+.lead-bot-state[data-off]::before {
+  color: #b08a2e;
+}
+.lead-bot-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.lead-bot-code {
+  display: grid;
+  gap: 5px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.lead-bot-code code {
+  font-size: 16px;
+  letter-spacing: 0.06em;
+  user-select: all;
+}
+.lead-bot-code small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+.lead-bot-sub {
+  margin-top: 6px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.lead-bot-chats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.lead-bot-chats li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}

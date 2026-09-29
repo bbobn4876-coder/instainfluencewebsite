@@ -31,6 +31,16 @@ import type { PublicSettings } from "@/lib/settings";
 import type { InboxChannel, InboxMessage, ChannelStatus } from "@/lib/inbox";
 import type { Influencer, OutreachResult } from "@/lib/types";
 
+type LeadBotStatus = {
+  configured: boolean;
+  envKey: string;
+  username: string | null;
+  error?: string | null;
+  webhook: { url: string; pending: number; lastError: string | null } | null;
+  webhookUrl: string;
+  chats: { chatId: string; title: string; city: string; linkedAt: string | null }[];
+};
+
 type View = "discover" | "leads" | "compose" | "results" | "inbox" | "settings" | "admin";
 
 const VIEWS: Array<{ id: View; hotkey: string; icon: JSX.Element }> = [
@@ -218,6 +228,9 @@ export default function Page() {
   const [leadKeywords, setLeadKeywords] = useState("нужен смм, ищу видеографа, продвижение");
   const [leadsLoading, setLeadsLoading] = useState(false);
   const [leadNotes, setLeadNotes] = useState<string[]>([]);
+  const [leadBot, setLeadBot] = useState<LeadBotStatus | null>(null);
+  const [leadBotBusy, setLeadBotBusy] = useState(false);
+  const [leadBotCode, setLeadBotCode] = useState<string | null>(null);
   const [authResolved, setAuthResolved] = useState(session.known);
   const [welcoming, setWelcoming] = useState(false);
   const [pitching, setPitching] = useState(false);
@@ -694,6 +707,42 @@ export default function Page() {
       setLeadsLoading(false);
     }
   }, [leadSources, leadCity, leadCategory, leadKeywords, t]);
+
+  const loadLeadBot = useCallback(async () => {
+    try {
+      const res = await fetch("/api/leads/bot");
+      if (res.ok) setLeadBot((await res.json()) as LeadBotStatus);
+    } catch {
+      /* the panel simply stays empty */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user && view === "leads") void loadLeadBot();
+  }, [user, view, loadLeadBot]);
+
+  const botAction = useCallback(
+    async (action: string, chatId?: string) => {
+      setLeadBotBusy(true);
+      setNotice(null);
+      try {
+        const res = await fetch("/api/leads/bot", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action, chatId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Could not reach the bot.");
+        if (action === "code") setLeadBotCode(data.code as string);
+        else setLeadBot(data as LeadBotStatus);
+      } catch (error) {
+        setNotice((error as Error).message);
+      } finally {
+        setLeadBotBusy(false);
+      }
+    },
+    [],
+  );
 
   const loadAdmin = useCallback(async () => {
     setAdminLoading(true);
@@ -1310,6 +1359,79 @@ export default function Page() {
                   );
                 })}
               </div>
+
+              <section className="panel lead-bot">
+                <b className="panel-title">{t.leads.bot.title}</b>
+                <p className="hint">{t.leads.bot.sub}</p>
+
+                {!leadBot ? null : !leadBot.configured ? (
+                  <p className="lead-bot-state" data-off>
+                    {t.leads.bot.needsToken(leadBot.envKey)}
+                  </p>
+                ) : (
+                  <>
+                    <p className="lead-bot-state">
+                      {leadBot.username
+                        ? t.leads.bot.connected(leadBot.username)
+                        : (leadBot.error ?? t.leads.bot.unknownBot)}
+                    </p>
+                    <p className="lead-bot-state" data-off={!leadBot.webhook?.url}>
+                      {leadBot.webhook?.url ? t.leads.bot.webhookOn : t.leads.bot.webhookOff}
+                      {leadBot.webhook?.pending
+                        ? ` · ${t.leads.bot.pending(leadBot.webhook.pending)}`
+                        : ""}
+                    </p>
+                    {leadBot.webhook?.lastError ? (
+                      <p className="hint">{leadBot.webhook.lastError}</p>
+                    ) : null}
+
+                    <div className="lead-bot-actions">
+                      <button
+                        className="btn"
+                        disabled={leadBotBusy}
+                        onClick={() => botAction(leadBot.webhook?.url ? "deleteWebhook" : "setWebhook")}
+                      >
+                        {leadBot.webhook?.url ? t.leads.bot.removeWebhook : t.leads.bot.setWebhook}
+                      </button>
+                      <button
+                        className="btn ghost"
+                        disabled={leadBotBusy}
+                        onClick={() => botAction("code")}
+                      >
+                        {t.leads.bot.linkChat}
+                      </button>
+                    </div>
+
+                    {leadBotCode ? (
+                      <div className="lead-bot-code">
+                        <code>/link {leadBotCode}</code>
+                        <small>{t.leads.bot.codeHint(leadBot.username ?? "bot")}</small>
+                      </div>
+                    ) : null}
+
+                    <b className="lead-bot-sub">{t.leads.bot.chats}</b>
+                    {leadBot.chats.length === 0 ? (
+                      <p className="hint">{t.leads.bot.noChats}</p>
+                    ) : (
+                      <ul className="lead-bot-chats">
+                        {leadBot.chats.map((chat) => (
+                          <li key={chat.chatId}>
+                            <span>{chat.title || chat.chatId}</span>
+                            <button
+                              className="chip"
+                              disabled={leadBotBusy}
+                              onClick={() => botAction("unlink", chat.chatId)}
+                            >
+                              {t.leads.bot.unlink}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <p className="hint">{t.leads.bot.commands}</p>
+                  </>
+                )}
+              </section>
 
               {leadNotes.includes("sample") ? (
                 <p className="hint">{t.leads.sampleNotice}</p>

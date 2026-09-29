@@ -204,3 +204,9 @@ export const sessionCookieOptions = {
   maxAge: SESSION_DAYS * 24 * 60 * 60,
   secure: process.env.NODE_ENV === "production",
 };
+
+/** The account an id belongs to, for callers with no session cookie (the bot). */
+export async function userById(userId: string): Promise<User | null> {
+  const user = await findUser({ id: userId });
+  return user ? publicUser(user) : null;
+}
