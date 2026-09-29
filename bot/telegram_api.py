@@ -73,6 +73,11 @@ def answer_callback(callback_id: str, text: str | None = None) -> None:
     call("answerCallbackQuery", {"callback_query_id": callback_id, **({"text": text} if text else {})})
 
 
+def set_commands(commands: list[dict[str, str]]) -> None:
+    """What Telegram lists in the ⌘ menu next to the input box."""
+    call("setMyCommands", {"commands": commands})
+
+
 def delete_webhook() -> None:
     """Polling and a webhook cannot both be active; the webhook wins otherwise."""
     call("deleteWebhook", {"drop_pending_updates": False})

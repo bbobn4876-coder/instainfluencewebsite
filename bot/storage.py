@@ -29,6 +29,17 @@ CREATE TABLE IF NOT EXISTS seen_messages (
   posted_at  INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS seen_by_time ON seen_messages (posted_at DESC);
+CREATE TABLE IF NOT EXISTS watched_chats (
+  chat_id   TEXT PRIMARY KEY,
+  title     TEXT NOT NULL,
+  seen      INTEGER NOT NULL DEFAULT 0,
+  kept      INTEGER NOT NULL DEFAULT 0,
+  last_seen INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS pending (
+  chat_id TEXT PRIMARY KEY,
+  field   TEXT NOT NULL
+);
 """
 
 
@@ -119,3 +130,77 @@ def forget_old(db: sqlite3.Connection, days: int = 60) -> None:
     """Nothing is kept forever; the archive is only there to search over."""
     db.execute("DELETE FROM seen_messages WHERE posted_at < ?", (int(time.time()) - days * 86_400,))
     db.commit()
+
+
+# ---------------------------------------------------------------- watched chats
+
+
+def note_chat_activity(
+    db: sqlite3.Connection, chat_id: int, title: str, *, kept: bool
+) -> None:
+    """Counts what the bot is actually shown in a group.
+
+    Zero messages seen is the tell that Group Privacy is still on — without this
+    there is no way to tell that apart from a quiet chat.
+    """
+    db.execute(
+        "INSERT INTO watched_chats (chat_id, title, seen, kept, last_seen) "
+        "VALUES (?, ?, 1, ?, ?) "
+        "ON CONFLICT (chat_id) DO UPDATE SET "
+        "  title = excluded.title,"
+        "  seen = watched_chats.seen + 1,"
+        "  kept = watched_chats.kept + excluded.kept,"
+        "  last_seen = excluded.last_seen",
+        (str(chat_id), title, 1 if kept else 0, int(time.time())),
+    )
+    db.commit()
+
+
+def register_chat(db: sqlite3.Connection, chat_id: int, title: str) -> None:
+    """Notes a group the bot was just added to, with nothing seen yet.
+
+    Telegram delivers the "bot was added" service message even when Group
+    Privacy is on — which is exactly the case where no ordinary message ever
+    arrives. A row here with seen = 0 is what tells the two apart.
+    """
+    db.execute(
+        "INSERT INTO watched_chats (chat_id, title, seen, kept, last_seen) "
+        "VALUES (?, ?, 0, 0, ?) "
+        "ON CONFLICT (chat_id) DO UPDATE SET title = excluded.title",
+        (str(chat_id), title, int(time.time())),
+    )
+    db.commit()
+
+
+def forget_chat(db: sqlite3.Connection, chat_id: int) -> None:
+    db.execute("DELETE FROM watched_chats WHERE chat_id = ?", (str(chat_id),))
+    db.commit()
+
+
+def watched_chats(db: sqlite3.Connection) -> list[sqlite3.Row]:
+    return list(db.execute("SELECT * FROM watched_chats ORDER BY kept DESC, seen DESC"))
+
+
+def archive_size(db: sqlite3.Connection) -> int:
+    return db.execute("SELECT COUNT(*) AS n FROM seen_messages").fetchone()["n"]
+
+
+# -------------------------------------------------------------- pending input
+
+
+def set_pending(db: sqlite3.Connection, chat_id: int | str, field: str | None) -> None:
+    """Which setting the next plain message fills in, if any."""
+    if field is None:
+        db.execute("DELETE FROM pending WHERE chat_id = ?", (str(chat_id),))
+    else:
+        db.execute(
+            "INSERT INTO pending (chat_id, field) VALUES (?, ?) "
+            "ON CONFLICT (chat_id) DO UPDATE SET field = excluded.field",
+            (str(chat_id), field),
+        )
+    db.commit()
+
+
+def get_pending(db: sqlite3.Connection, chat_id: int | str) -> str | None:
+    row = db.execute("SELECT field FROM pending WHERE chat_id = ?", (str(chat_id),)).fetchone()
+    return row["field"] if row else None
